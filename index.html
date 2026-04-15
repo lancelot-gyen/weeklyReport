@@ -1479,13 +1479,14 @@ async function generateAIReport(){
       content = data.content?.[0]?.text || '生成失敗，請重試。';
     } else {
       // ── Google Gemini API（v1beta，Flash 系列支援最廣）──
-      var rawModel = appSettings.gemini_model || 'gemini-2.0-flash';
+      var rawModel = appSettings.gemini_model || 'gemini-2.0-flash-lite';
       // 清除 models/ 前綴，確保不會重複拼接
       var cleanModel = rawModel.replace(/^models\//,'').trim();
       var finalUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + cleanModel + ':generateContent?key=' + aiKey;
-      console.log('Requesting URL:', finalUrl);
+      console.log('[Gemini] Request URL:', finalUrl);
 
       var geminiBody = JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] });
+      console.log('[Gemini] Request Body:', geminiBody);
       response = await fetch(finalUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1494,13 +1495,15 @@ async function generateAIReport(){
 
       // 404：模型不存在，直接提示使用者更新後台設定
       if(response.status === 404){
+        var e404 = await response.json().catch(()=>({}));
+        console.error('[Gemini] 404 URL:', finalUrl, e404);
         toast('模型 ID 無效或已停用，請至後台更新模型名稱。','#c03020');
         throw new Error('模型 ID 無效或已停用，請至後台更新模型名稱。');
       }
 
       if(!response.ok){
         var e2 = await response.json().catch(()=>({}));
-        console.error('Gemini error URL:', finalUrl, e2);
+        console.error('[Gemini] Error URL:', finalUrl, 'Body:', geminiBody, 'Response:', e2);
         throw new Error(e2.error?.message || `HTTP ${response.status}`);
       }
       data = await response.json();
@@ -2116,7 +2119,7 @@ function renderSettingsTab(){
   var body=document.getElementById('admBody');
   var s=appSettings;
   var prov=s.ai_provider||'gemini';
-  var gemKey=s.gemini_key||''; var gemMod=s.gemini_model||'gemini-2.0-flash';
+  var gemKey=s.gemini_key||''; var gemMod=s.gemini_model||'gemini-2.0-flash-lite';
   var antKey=s.anthropic_key||''; var antMod=s.anthropic_model||'claude-sonnet-4-20250514';
 
   function provLabelStyle(which){
@@ -2155,7 +2158,7 @@ function renderSettingsTab(){
       </div>
       <div class="adm-fi">
         <label>Model</label>
-        <input type="text" id="st_gemini_model" value="${escapeHtml(gemMod)}" placeholder="gemini-2.0-flash">
+        <input type="text" id="st_gemini_model" value="${escapeHtml(gemMod)}" placeholder="gemini-2.0-flash-lite">
       </div>
 
       <div class="adm-fi full" style="border-top:1px solid var(--bd);padding-top:12px;margin-top:4px">
@@ -2198,8 +2201,8 @@ function stProvChange(radio){
 async function settingsSave(){
   var prov=document.querySelector('input[name=st_provider]:checked')?.value||'gemini';
   // 清除 gemini_model 的 models/ 前綴，確保存入格式正確
-  var rawGeminiModel=(document.getElementById('st_gemini_model')?.value.trim()||'gemini-2.0-flash');
-  var cleanGeminiModel=rawGeminiModel.replace(/^models\//,'').trim()||'gemini-2.0-flash';
+  var rawGeminiModel=(document.getElementById('st_gemini_model')?.value.trim()||'gemini-2.0-flash-lite');
+  var cleanGeminiModel=rawGeminiModel.replace(/^models\//,'').trim()||'gemini-2.0-flash-lite';
   var rows=[
     {key:'ai_provider',    value:prov},
     {key:'gemini_key',     value:document.getElementById('st_gemini_key')?.value.trim()||''},
@@ -2218,9 +2221,11 @@ async function settingsSave(){
 async function fixGeminiModelInDB(){
   var cur=appSettings.gemini_model||'';
   var clean=cur.replace(/^models\//,'').trim();
-  var needsUpgrade = !clean || clean!==cur || clean==='gemini-1.5-flash' || clean==='gemini-1.5-flash-001' || clean==='gemini-1.5-flash-8b';
-  if(needsUpgrade){
-    var fixVal=(!clean||clean==='gemini-1.5-flash'||clean==='gemini-1.5-flash-001'||clean==='gemini-1.5-flash-8b') ? 'gemini-2.0-flash' : clean;
+  // 偵測已停用的 1.5 全系列，或空值，或含 models/ 前綴
+  var isDeprecated = !clean || clean!==cur || /gemini-1\./i.test(clean);
+  if(isDeprecated){
+    var fixVal = isDeprecated && clean && !/gemini-1\./i.test(clean) ? clean : 'gemini-2.0-flash-lite';
+    console.log('[fixGeminiModelInDB] 自動升級模型:', cur, '→', fixVal);
     await sb.from('app_settings').upsert({key:'gemini_model',value:fixVal},{onConflict:'key'});
     appSettings.gemini_model=fixVal;
   }

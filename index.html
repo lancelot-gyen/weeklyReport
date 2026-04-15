@@ -736,7 +736,11 @@ textarea.sh{min-height:60px;resize:none;}
 // ══════════════════════════════════════════════
 const SUPA_URL = 'https://zunactakynxzgvzoazul.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1bmFjdGFreW54emd2em9henVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDkyMjgsImV4cCI6MjA5MTcyNTIyOH0.z1RQKCkAQtvwp78qCFUPzSAu5wg57oyU56aQvIfjp-g';
-// ⚠️ 請填入 Anthropic API Key（僅內部工具使用，請勿公開此頁面）
+// Gemini API（開發階段）
+const GEMINI_KEY = 'AIzaSyAb8RN6JChGoU4AiMRTAaQZdeHvMql8ybQWKQBiHjjWuzHEs9Xg';
+const MODEL_NAME = 'gemini-2.0-flash-lite';
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${GEMINI_KEY}`;
+// ⚠️ 正式上線時改回 Anthropic（ANTHROPIC_KEY 保留備用）
 const ANTHROPIC_KEY = '';
 
 // ── Fallback Prompt（當 Supabase ai_prompts 表無資料時使用）──
@@ -1421,8 +1425,8 @@ async function generateAIReport(){
   // isXP 宣告在 try 外，避免 catch/finally 存取到 undefined
   var isXP = currentAISection === 'xp';
 
-  if(!ANTHROPIC_KEY){
-    toast('請先在程式碼頂部填入 ANTHROPIC_KEY', '#c03020');
+  if(!GEMINI_KEY){
+    toast('請先填入 GEMINI_KEY', '#c03020');
     return;
   }
 
@@ -1442,7 +1446,7 @@ async function generateAIReport(){
       : (aiPrompts['group_report'] || FALLBACK_PROMPT_GROUP);
 
     var weekLabel = document.getElementById('weekLabel').textContent;
-    var prompt = promptTemplate
+    var promptText = promptTemplate
       .replace(/\{\{persona_name\}\}/g, p.name)
       .replace(/\{\{role\}\}/g, p.role)
       .replace(/\{\{week\}\}/g, weekLabel)
@@ -1450,18 +1454,12 @@ async function generateAIReport(){
       .replace(/\{\{manager\}\}/g, gr ? gr.mgr : 'Jerry')
       .replace(/\{\{fields\}\}/g, fields);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // ── Gemini API ──
+    const response = await fetch(API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        messages: [{ role: 'user', content: prompt }]
+        contents: [{ parts: [{ text: promptText }] }]
       })
     });
 
@@ -1471,7 +1469,7 @@ async function generateAIReport(){
     }
 
     const data = await response.json();
-    const content = data.content?.[0]?.text || '生成失敗，請重試。';
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗，請重試。';
 
     // 儲存至 ai_reports
     await sb.from('ai_reports').insert({

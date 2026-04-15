@@ -602,18 +602,13 @@ textarea.sh{min-height:60px;resize:none;}
   font-weight:500;cursor:pointer;transition:background .15s;}
 .submit-confirm:active{background:#a85415;}
 .submit-confirm:disabled{opacity:.5;cursor:not-allowed;}
-.submit-ai-sec{background:linear-gradient(135deg,#fff7f0,#fff);border:1px solid var(--ab);
-  border-radius:12px;overflow:hidden;margin-top:0;}
-.submit-ai-hd{display:flex;align-items:center;gap:8px;padding:10px 16px;
-  background:var(--al);border-bottom:1px solid var(--ab);}
-.submit-ai-icon{color:var(--ac);font-size:13px;}
-.submit-ai-title{font-size:12px;font-weight:600;color:var(--ac);}
-.submit-ai-time{font-size:10px;color:var(--t3);margin-left:auto;}
-.submit-ai-body{padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8;
-  white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;}
 /* Sidebar AI badge */
 .sb-ai-dot{font-size:9px;color:var(--ac);background:var(--al);border:1px solid var(--ab);
-  border-radius:4px;padding:1px 5px;font-weight:700;flex-shrink:0;letter-spacing:.02em;}
+  border-radius:4px;padding:1px 5px;font-weight:700;flex-shrink:0;letter-spacing:.02em;
+  cursor:pointer;transition:background .12s;}
+.sb-ai-dot:hover{background:var(--ab);}
+/* submit wrap 需要 flex column 讓 aib 可以 flex:1 捲動 */
+.submit-wrap{display:flex;flex-direction:column;}
 </style>
 </head>
 <body>
@@ -689,7 +684,6 @@ textarea.sh{min-height:60px;resize:none;}
 
 <div class="bbar">
   <div class="botl">
-    <button class="pvb" onclick="toggleAI()"><div class="pdot"></div>預覽 AI 生成週報</button>
     <div class="dnt" id="autoSaveNote">每 30 秒自動儲存</div>
   </div>
   <div class="botr">
@@ -746,17 +740,22 @@ textarea.sh{min-height:60px;resize:none;}
 <!-- 送出週報 預覽確認 Modal -->
 <div class="submit-ov" id="submitOv" onclick="submitOvClick(event)">
   <div class="submit-wrap" onclick="event.stopPropagation()">
-    <div class="hist-hd">
-      <div class="hist-hd-t">
-        <span class="hist-hd-badge" style="background:var(--ac)">SUBMIT</span>
-        送出週報・預覽確認
+    <div class="aih" style="background:#1a1a1a;border-radius:16px 16px 0 0">
+      <div class="aiht" style="color:#fff">
+        <div class="aid"></div>
+        <span>送出週報 · AI 報告確認</span>
       </div>
-      <div class="hist-cls" onclick="closeSubmitPreview()">×</div>
+      <div id="submitProgBadge" style="font-size:11px;color:#aaa;margin-left:12px"></div>
+      <div style="color:#666;cursor:pointer;font-size:22px;line-height:1;padding:4px 10px;border-radius:6px;margin-left:auto" onclick="closeSubmitPreview()">×</div>
     </div>
-    <div class="hist-body" id="submitBody"><div class="hist-empty">載入中...</div></div>
-    <div class="submit-foot">
-      <button class="submit-cancel" onclick="closeSubmitPreview()">取消</button>
-      <button class="submit-confirm" id="submitConfirmBtn" onclick="confirmSubmit()">確認送出　✓</button>
+    <div class="ai-section-tabs" id="submitTabs"></div>
+    <div class="aib" id="submitBody"></div>
+    <div class="aifo" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span>確認 AI 週報內容後送出，報告將路由至各收件匣。</span>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button class="submit-cancel" onclick="closeSubmitPreview()">取消</button>
+        <button class="submit-confirm" id="submitConfirmBtn" onclick="confirmSubmit()">確認送出　✓</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2577,6 +2576,8 @@ function updateSidebarAIBadges(){
       if(!existing){
         var badge=document.createElement('span');
         badge.className='sb-ai-dot'; badge.textContent='✦ AI';
+        // 點擊 badge 直接開啟該群 AI 報告
+        badge.onclick=function(e){ e.stopPropagation(); openAIFor(sid); };
         var dot=sbEl.querySelector('.sbd,.sbr');
         if(dot) sbEl.insertBefore(badge,dot); else sbEl.appendChild(badge);
       }
@@ -2586,17 +2587,65 @@ function updateSidebarAIBadges(){
   });
 }
 
+// 導覽至指定群頁面並開啟 AI 面板顯示該群報告
+function openAIFor(sid){
+  showPage(sid);
+  var panel=document.getElementById('aiPanel'), ma=document.getElementById('mainArea');
+  panel.classList.add('open'); ma.classList.add('po');
+  setAITab(sid);
+  updateMobNav(sid);
+}
+
 async function openSubmitPreview(){
   await saveCurrentPage();
   var p=getP(); if(!p) return;
-  document.getElementById('submitOv').classList.add('open');
-  document.getElementById('submitBody').innerHTML='<div class="hist-empty">載入中...</div>';
-  var {data}=await sb.from('weekly_reports').select('*')
-    .eq('week_key',WEEK_KEY).eq('persona_id',curPId);
-  var hd={};
-  (data||[]).forEach(r=>{ hd[`${r.section_id}__${r.field_key}`]=r.value; });
   await loadAIReportCache();
-  renderSubmitPreview(hd);
+
+  // 進度摘要
+  var order=getOrderFor(p);
+  var done=order.filter(sid=>savedData[`${curPId}__${sid}____done__`]==='1').length;
+  var pct=Math.round(done/order.length*100);
+  document.getElementById('submitProgBadge').textContent=`${done}/${order.length} 完成・${pct}%`;
+
+  // 建立 tabs（xp + 各群）
+  var tabs=''; var firstTab=null;
+  if(p.xp){ tabs+=`<div class="ai-tab pj" onclick="submitSetTab('xp')">跨群進度</div>`; if(!firstTab) firstTab='xp'; }
+  p.groups.forEach(g=>{ if(!G[g]) return; tabs+=`<div class="ai-tab" onclick="submitSetTab('${g}')">${G[g].name}</div>`; if(!firstTab) firstTab=g; });
+  document.getElementById('submitTabs').innerHTML=tabs;
+
+  document.getElementById('submitOv').classList.add('open');
+  if(firstTab) submitSetTab(firstTab);
+}
+
+var submitCurTab=null;
+
+function submitSetTab(sid){
+  submitCurTab=sid;
+  var isXP=sid==='xp';
+  document.querySelectorAll('#submitTabs .ai-tab').forEach(t=>{ t.classList.remove('on'); });
+  var tabEl=document.querySelector(`#submitTabs .ai-tab[onclick="submitSetTab('${sid}')"]`);
+  if(tabEl){ tabEl.classList.add('on'); if(isXP) tabEl.classList.add('pj'); }
+
+  var body=document.getElementById('submitBody');
+  var ar=aiReportCache[sid];
+  if(ar){
+    var dt=new Date(ar.generated_at).toLocaleString('zh-TW');
+    body.innerHTML=`<div style="font-size:11px;color:var(--t3);padding:0 2px 8px">
+      上次生成：${dt}&ensp;<span class="ai-copy" onclick="submitCopyAI()">複製</span></div>
+      <div class="aibl result"><div class="aitx" id="submitAiText">${escapeHtml(ar.content)}</div></div>`;
+  } else {
+    var gr=G[sid];
+    var label=isXP?'跨群進度':(gr?gr.name:sid);
+    body.innerHTML=`<div class="aibl">
+      <div class="aibt${isXP?' pj':''}">尚未生成 AI 週報</div>
+      <div class="aitx">「${label}」本週尚未產生 AI 週報。<br>請填寫完成後，至填報頁面點擊「生成 AI 週報」。</div>
+    </div>`;
+  }
+}
+
+function submitCopyAI(){
+  var el=document.getElementById('submitAiText');
+  if(el) navigator.clipboard.writeText(el.textContent).then(()=>toast('已複製到剪貼簿','#3d7020'));
 }
 
 function closeSubmitPreview(){
@@ -2605,113 +2654,6 @@ function closeSubmitPreview(){
 
 function submitOvClick(e){
   if(e.target===document.getElementById('submitOv')) closeSubmitPreview();
-}
-
-function renderSubmitPreview(hd){
-  var p=getP(); if(!p) return;
-  var body=document.getElementById('submitBody');
-  var stMap={g:'順暢推進',y:'有些卡關',r:'壓力很大'};
-  var mpMap={a:'正常，游刃有餘',b:'滿載，但還能應對',c:'超載，有些事做不完了'};
-  var secNames={ss:'本週狀態',sm:'人力狀態',sc:'跨群議題',sv:'本週一句話',xp:'跨群進度'};
-
-  var order=getOrderFor(p);
-  var doneCount=order.filter(sid=>hd[`${sid}____done__`]==='1').length;
-  var pct=order.length>0?Math.round(doneCount/order.length*100):0;
-
-  var html=`<div class="hist-prog">
-    <div class="hist-prog-top">
-      <div class="hist-prog-lbl">${p.name}・${p.role}・${WEEK_KEY}</div>
-      <div class="hist-prog-pct">${doneCount}/${order.length} 完成・${pct}%</div>
-    </div>
-    <div class="hist-bar"><div class="hist-bar-fill" style="width:${pct}%"></div></div>
-    <div class="hist-prog-secs">`;
-  order.forEach(sid=>{
-    var done=hd[`${sid}____done__`]==='1';
-    var nm=secNames[sid]||(G[sid]?G[sid].name:sid);
-    html+=`<span class="hist-sdot ${done?'done':'empty'}">${done?'✓':'-'} ${nm}</span>`;
-  });
-  html+='</div></div>';
-
-  // 本週整體狀態
-  html+=histSec('本週整體狀態','ss',hd,()=>{
-    var r=''; var st=hd['ss__radio_st'];
-    if(st) r+=histF('整體感覺',`<span class="hist-radio ${st}">${stMap[st]||st}</span>`);
-    var note=hd['ss__note']; if(note) r+=histF('補充說明',escapeHtml(note));
-    return r;
-  });
-
-  // 人力狀態
-  html+=histSec('人力狀態','sm',hd,()=>{
-    var r=''; var mp=hd['sm__radio_mp'];
-    if(mp) r+=histF('本週工作量',`<span class="hist-radio ${mp}">${mpMap[mp]||mp}</span>`);
-    var prs=hd['sm__pressure']; if(prs) r+=histF('主要壓力來源',escapeHtml(prs));
-    var cfl=hd['sm__conflict']; if(cfl) r+=histF('跨群資源衝突',escapeHtml(cfl));
-    return r;
-  });
-
-  // 跨群議題
-  html+=histSec('跨群議題','sc',hd,()=>{
-    var v=hd['sc__cross_issue']; return v?histF('議題說明',escapeHtml(v)):'';
-  });
-
-  // 本週一句話
-  html+=histSec('本週一句話','sv',hd,()=>{
-    var v=hd['sv__voice']; return v?histF('一句話',escapeHtml(v)):'';
-  });
-
-  // 跨群進度
-  if(p.xp){
-    var xpL=['本週跨群工作完成','進行中的跨群工作','卡關或待處理','下週跨群計畫','需要總經理協調','公司層級決策'];
-    var xpK=['xp_q1','xp_q2','xp_q3','xp_q4','xp_esc1','xp_esc2'];
-    html+=histSec('跨群工作進度','xp',hd,()=>{
-      var r='';
-      xpK.forEach((k,i)=>{ var v=hd[`xp__${k}`]; if(v) r+=histF(xpL[i],escapeHtml(v)); });
-      return r;
-    });
-    // AI report for xp
-    if(aiReportCache['xp']){
-      var ar=aiReportCache['xp'];
-      html+=`<div class="submit-ai-sec">
-        <div class="submit-ai-hd">
-          <span class="submit-ai-icon">✦</span>
-          <span class="submit-ai-title">AI 跨群進度週報</span>
-          <span class="submit-ai-time">${new Date(ar.generated_at).toLocaleString('zh-TW')}</span>
-        </div>
-        <div class="submit-ai-body">${escapeHtml(ar.content)}</div>
-      </div>`;
-    }
-  }
-
-  // 各事業群
-  p.groups.forEach(gid=>{
-    var g=G[gid]; if(!g) return;
-    html+=histSec(g.name,gid,hd,()=>{
-      var r='';
-      var qs=getQs(p.role);
-      (g.brands||[]).forEach(brand=>{
-        var bLines='';
-        qs.forEach((q,qi)=>{ var v=hd[`${gid}__${gid}_${brand}_q${qi}`]; if(v) bLines+=histF(q.lbl,escapeHtml(v)); });
-        if(bLines) r+=`<div class="hist-brand"><div class="hist-bname">${brand}</div>${bLines}</div>`;
-      });
-      var e1=hd[`${gid}__${gid}_esc1`]; if(e1) r+=histF('⚠ 需群負責人協調',escapeHtml(e1));
-      var e2=hd[`${gid}__${gid}_esc2`]; if(e2) r+=histF('🔴 需公司層級決策',escapeHtml(e2));
-      return r;
-    });
-    // AI report for this group
-    if(aiReportCache[gid]){
-      var ar=aiReportCache[gid];
-      html+=`<div class="submit-ai-sec">
-        <div class="submit-ai-hd">
-          <span class="submit-ai-icon">✦</span>
-          <span class="submit-ai-title">AI 週報・${g.name}</span>
-          <span class="submit-ai-time">${new Date(ar.generated_at).toLocaleString('zh-TW')}</span>
-        </div>
-        <div class="submit-ai-body">${escapeHtml(ar.content)}</div>
-      </div>`;
-    }
-  });
-
-  body.innerHTML=html;
 }
 
 async function confirmSubmit(){

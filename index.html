@@ -582,6 +582,38 @@ textarea.sh{min-height:60px;resize:none;}
   font-size:13px;color:var(--pj);cursor:pointer;margin-bottom:2px;transition:background .12s;
   user-select:none;min-height:40px;border:1px solid var(--pjb);background:var(--pjl);}
 .sbi-hist:active{background:#dde9f8;}
+
+/* ── Submit Preview ── */
+.submit-ov{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:8100;display:none;
+  align-items:flex-start;justify-content:center;padding:16px;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.submit-ov.open{display:flex;}
+.submit-wrap{background:#fff;border-radius:16px;width:100%;max-width:900px;
+  max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.45);}
+.submit-foot{display:flex;align-items:center;justify-content:flex-end;gap:10px;
+  padding:14px 20px;border-top:1px solid var(--bd);background:var(--sf2);flex-shrink:0;}
+.submit-cancel{background:#fff;border:1px solid var(--bdm);border-radius:8px;
+  padding:10px 20px;font-size:13px;font-family:'Noto Sans TC',sans-serif;
+  color:var(--t2);cursor:pointer;transition:background .12s;}
+.submit-cancel:active{background:var(--sf2);}
+.submit-confirm{background:var(--ac);color:#fff;border:none;border-radius:8px;
+  padding:10px 24px;font-size:13px;font-family:'Noto Sans TC',sans-serif;
+  font-weight:500;cursor:pointer;transition:background .15s;}
+.submit-confirm:active{background:#a85415;}
+.submit-confirm:disabled{opacity:.5;cursor:not-allowed;}
+.submit-ai-sec{background:linear-gradient(135deg,#fff7f0,#fff);border:1px solid var(--ab);
+  border-radius:12px;overflow:hidden;margin-top:0;}
+.submit-ai-hd{display:flex;align-items:center;gap:8px;padding:10px 16px;
+  background:var(--al);border-bottom:1px solid var(--ab);}
+.submit-ai-icon{color:var(--ac);font-size:13px;}
+.submit-ai-title{font-size:12px;font-weight:600;color:var(--ac);}
+.submit-ai-time{font-size:10px;color:var(--t3);margin-left:auto;}
+.submit-ai-body{padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8;
+  white-space:pre-wrap;word-break:break-word;max-height:200px;overflow-y:auto;}
+/* Sidebar AI badge */
+.sb-ai-dot{font-size:9px;color:var(--ac);background:var(--al);border:1px solid var(--ab);
+  border-radius:4px;padding:1px 5px;font-weight:700;flex-shrink:0;letter-spacing:.02em;}
 </style>
 </head>
 <body>
@@ -708,6 +740,24 @@ textarea.sh{min-height:60px;resize:none;}
     </div>
     <div class="hist-psel" id="histPsel" style="display:none"></div>
     <div class="hist-body" id="histBody"><div class="hist-empty">載入中...</div></div>
+  </div>
+</div>
+
+<!-- 送出週報 預覽確認 Modal -->
+<div class="submit-ov" id="submitOv" onclick="submitOvClick(event)">
+  <div class="submit-wrap" onclick="event.stopPropagation()">
+    <div class="hist-hd">
+      <div class="hist-hd-t">
+        <span class="hist-hd-badge" style="background:var(--ac)">SUBMIT</span>
+        送出週報・預覽確認
+      </div>
+      <div class="hist-cls" onclick="closeSubmitPreview()">×</div>
+    </div>
+    <div class="hist-body" id="submitBody"><div class="hist-empty">載入中...</div></div>
+    <div class="submit-foot">
+      <button class="submit-cancel" onclick="closeSubmitPreview()">取消</button>
+      <button class="submit-confirm" id="submitConfirmBtn" onclick="confirmSubmit()">確認送出　✓</button>
+    </div>
   </div>
 </div>
 
@@ -1077,6 +1127,7 @@ function buildUI(){
   p.groups.forEach(g => { ST[g] = 'empty'; });
   if (p.xp) ST['xp'] = 'empty';
   buildSidebar(p); buildPages(p);
+  loadAIReportCache().then(()=>updateSidebarAIBadges());
   // 從已儲存資料恢復 done 狀態
   restoreDoneStates(p);
   var first = p.groups.length > 0 ? p.groups[0] : 'sm';
@@ -1522,6 +1573,7 @@ async function generateAIReport(){
 
     renderAIResult(content, new Date().toISOString());
     toast('✓ AI 週報已生成', '#3d7020');
+    loadAIReportCache().then(()=>updateSidebarAIBadges());
   } catch(e) {
     console.error(e);
     bodyEl.innerHTML = `<div class="aibl"><div class="aibt" style="color:#c03020">生成失敗</div><div class="aitx">${escapeHtml(e.message||'未知錯誤，請確認 API Key 並重試。')}</div></div>`;
@@ -1653,17 +1705,15 @@ async function goNext(){
   else {
     var btn=document.getElementById('nxtBtn');
     btn.textContent='送出週報　✓'; btn.classList.add('da');
-    btn.onclick=async function(){
-      toast('🎉 週報已送出！報告已路由至各收件匣','#c8691a');
-    };
+    btn.onclick=openSubmitPreview;
     document.getElementById('rnote').textContent='所有項目已完成';
-    toast('✓ 已儲存','#3d7020');
+    toast('✓ 已儲存，請確認後送出','#3d7020');
   }
 }
 function updateBot(){
   var order=getOrder(), n=order.filter(s=>ST[s]!=='done').length;
   var btn=document.getElementById('nxtBtn');
-  if(n===0){ document.getElementById('rnote').textContent='所有項目已完成'; btn.textContent='送出週報　✓'; btn.classList.add('da'); }
+  if(n===0){ document.getElementById('rnote').textContent='所有項目已完成'; btn.textContent='送出週報　✓'; btn.classList.add('da'); btn.onclick=openSubmitPreview; }
   else { document.getElementById('rnote').textContent='還有 '+n+' 個項目未完成'; btn.textContent='儲存，下一項　→'; btn.classList.remove('da'); btn.onclick=goNext; }
 }
 function updateProg(){
@@ -2496,6 +2546,197 @@ function histF(label,valHtml){
     <div class="hist-flbl">${label}</div>
     <div class="hist-fval">${valHtml}</div>
   </div>`;
+}
+
+// ══════════════════════════════════════════════
+// 送出週報 預覽 & 確認
+// ══════════════════════════════════════════════
+var aiReportCache = {}; // { [gid|'xp']: { content, generated_at } }
+
+async function loadAIReportCache(){
+  var p=getP(); if(!p) return;
+  aiReportCache={};
+  var {data}=await sb.from('ai_reports').select('*')
+    .eq('persona_id',curPId).eq('week_key',WEEK_KEY)
+    .order('generated_at',{ascending:false});
+  (data||[]).forEach(r=>{
+    var key=r.group_id===null?'xp':r.group_id;
+    if(!aiReportCache[key]) aiReportCache[key]=r;
+  });
+}
+
+function updateSidebarAIBadges(){
+  var p=getP(); if(!p) return;
+  var sections=[];
+  if(p.xp) sections.push('xp');
+  p.groups.forEach(g=>sections.push(g));
+  sections.forEach(sid=>{
+    var sbEl=document.querySelector(`[data-sid="${sid}"]`); if(!sbEl) return;
+    var existing=sbEl.querySelector('.sb-ai-dot');
+    if(aiReportCache[sid]){
+      if(!existing){
+        var badge=document.createElement('span');
+        badge.className='sb-ai-dot'; badge.textContent='✦ AI';
+        var dot=sbEl.querySelector('.sbd,.sbr');
+        if(dot) sbEl.insertBefore(badge,dot); else sbEl.appendChild(badge);
+      }
+    } else {
+      if(existing) existing.remove();
+    }
+  });
+}
+
+async function openSubmitPreview(){
+  await saveCurrentPage();
+  var p=getP(); if(!p) return;
+  document.getElementById('submitOv').classList.add('open');
+  document.getElementById('submitBody').innerHTML='<div class="hist-empty">載入中...</div>';
+  var {data}=await sb.from('weekly_reports').select('*')
+    .eq('week_key',WEEK_KEY).eq('persona_id',curPId);
+  var hd={};
+  (data||[]).forEach(r=>{ hd[`${r.section_id}__${r.field_key}`]=r.value; });
+  await loadAIReportCache();
+  renderSubmitPreview(hd);
+}
+
+function closeSubmitPreview(){
+  document.getElementById('submitOv').classList.remove('open');
+}
+
+function submitOvClick(e){
+  if(e.target===document.getElementById('submitOv')) closeSubmitPreview();
+}
+
+function renderSubmitPreview(hd){
+  var p=getP(); if(!p) return;
+  var body=document.getElementById('submitBody');
+  var stMap={g:'順暢推進',y:'有些卡關',r:'壓力很大'};
+  var mpMap={a:'正常，游刃有餘',b:'滿載，但還能應對',c:'超載，有些事做不完了'};
+  var secNames={ss:'本週狀態',sm:'人力狀態',sc:'跨群議題',sv:'本週一句話',xp:'跨群進度'};
+
+  var order=getOrderFor(p);
+  var doneCount=order.filter(sid=>hd[`${sid}____done__`]==='1').length;
+  var pct=order.length>0?Math.round(doneCount/order.length*100):0;
+
+  var html=`<div class="hist-prog">
+    <div class="hist-prog-top">
+      <div class="hist-prog-lbl">${p.name}・${p.role}・${WEEK_KEY}</div>
+      <div class="hist-prog-pct">${doneCount}/${order.length} 完成・${pct}%</div>
+    </div>
+    <div class="hist-bar"><div class="hist-bar-fill" style="width:${pct}%"></div></div>
+    <div class="hist-prog-secs">`;
+  order.forEach(sid=>{
+    var done=hd[`${sid}____done__`]==='1';
+    var nm=secNames[sid]||(G[sid]?G[sid].name:sid);
+    html+=`<span class="hist-sdot ${done?'done':'empty'}">${done?'✓':'-'} ${nm}</span>`;
+  });
+  html+='</div></div>';
+
+  // 本週整體狀態
+  html+=histSec('本週整體狀態','ss',hd,()=>{
+    var r=''; var st=hd['ss__radio_st'];
+    if(st) r+=histF('整體感覺',`<span class="hist-radio ${st}">${stMap[st]||st}</span>`);
+    var note=hd['ss__note']; if(note) r+=histF('補充說明',escapeHtml(note));
+    return r;
+  });
+
+  // 人力狀態
+  html+=histSec('人力狀態','sm',hd,()=>{
+    var r=''; var mp=hd['sm__radio_mp'];
+    if(mp) r+=histF('本週工作量',`<span class="hist-radio ${mp}">${mpMap[mp]||mp}</span>`);
+    var prs=hd['sm__pressure']; if(prs) r+=histF('主要壓力來源',escapeHtml(prs));
+    var cfl=hd['sm__conflict']; if(cfl) r+=histF('跨群資源衝突',escapeHtml(cfl));
+    return r;
+  });
+
+  // 跨群議題
+  html+=histSec('跨群議題','sc',hd,()=>{
+    var v=hd['sc__cross_issue']; return v?histF('議題說明',escapeHtml(v)):'';
+  });
+
+  // 本週一句話
+  html+=histSec('本週一句話','sv',hd,()=>{
+    var v=hd['sv__voice']; return v?histF('一句話',escapeHtml(v)):'';
+  });
+
+  // 跨群進度
+  if(p.xp){
+    var xpL=['本週跨群工作完成','進行中的跨群工作','卡關或待處理','下週跨群計畫','需要總經理協調','公司層級決策'];
+    var xpK=['xp_q1','xp_q2','xp_q3','xp_q4','xp_esc1','xp_esc2'];
+    html+=histSec('跨群工作進度','xp',hd,()=>{
+      var r='';
+      xpK.forEach((k,i)=>{ var v=hd[`xp__${k}`]; if(v) r+=histF(xpL[i],escapeHtml(v)); });
+      return r;
+    });
+    // AI report for xp
+    if(aiReportCache['xp']){
+      var ar=aiReportCache['xp'];
+      html+=`<div class="submit-ai-sec">
+        <div class="submit-ai-hd">
+          <span class="submit-ai-icon">✦</span>
+          <span class="submit-ai-title">AI 跨群進度週報</span>
+          <span class="submit-ai-time">${new Date(ar.generated_at).toLocaleString('zh-TW')}</span>
+        </div>
+        <div class="submit-ai-body">${escapeHtml(ar.content)}</div>
+      </div>`;
+    }
+  }
+
+  // 各事業群
+  p.groups.forEach(gid=>{
+    var g=G[gid]; if(!g) return;
+    html+=histSec(g.name,gid,hd,()=>{
+      var r='';
+      var qs=getQs(p.role);
+      (g.brands||[]).forEach(brand=>{
+        var bLines='';
+        qs.forEach((q,qi)=>{ var v=hd[`${gid}__${gid}_${brand}_q${qi}`]; if(v) bLines+=histF(q.lbl,escapeHtml(v)); });
+        if(bLines) r+=`<div class="hist-brand"><div class="hist-bname">${brand}</div>${bLines}</div>`;
+      });
+      var e1=hd[`${gid}__${gid}_esc1`]; if(e1) r+=histF('⚠ 需群負責人協調',escapeHtml(e1));
+      var e2=hd[`${gid}__${gid}_esc2`]; if(e2) r+=histF('🔴 需公司層級決策',escapeHtml(e2));
+      return r;
+    });
+    // AI report for this group
+    if(aiReportCache[gid]){
+      var ar=aiReportCache[gid];
+      html+=`<div class="submit-ai-sec">
+        <div class="submit-ai-hd">
+          <span class="submit-ai-icon">✦</span>
+          <span class="submit-ai-title">AI 週報・${g.name}</span>
+          <span class="submit-ai-time">${new Date(ar.generated_at).toLocaleString('zh-TW')}</span>
+        </div>
+        <div class="submit-ai-body">${escapeHtml(ar.content)}</div>
+      </div>`;
+    }
+  });
+
+  body.innerHTML=html;
+}
+
+async function confirmSubmit(){
+  var btn=document.getElementById('submitConfirmBtn');
+  if(!btn||btn.disabled) return;
+  btn.disabled=true; btn.textContent='送出中...';
+  try{
+    await saveCurrentPage();
+    // 寫入送出紀錄
+    await sb.from('weekly_reports').upsert({
+      persona_id:curPId, week_key:WEEK_KEY,
+      section_id:'_submit_', field_key:'submitted',
+      value:new Date().toISOString(), updated_at:new Date().toISOString()
+    },{onConflict:'persona_id,week_key,section_id,field_key'});
+    savedData[`${curPId}___submit___submitted`]=new Date().toISOString();
+    closeSubmitPreview();
+    toast('🎉 週報已送出！報告已路由至各收件匣','#c8691a');
+    // 更新按鈕狀態
+    var nxtBtn=document.getElementById('nxtBtn');
+    if(nxtBtn){ nxtBtn.textContent='週報已送出　✓'; nxtBtn.classList.add('da'); nxtBtn.onclick=openSubmitPreview; }
+    document.getElementById('rnote').textContent='所有項目已完成・週報已送出';
+  } catch(e){
+    toast('送出失敗：'+e.message,'#c03020');
+    btn.disabled=false; btn.textContent='確認送出　✓';
+  }
 }
 
 // ══════════════════════════════════════════════

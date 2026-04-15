@@ -1702,7 +1702,8 @@ function renderAdmTab(tab){
     sc.fields.forEach(f=>{
       // 填報人備注：若目前空白則自動帶入群組對應產生的文字
     var val=row[f.k]!==undefined?row[f.k]:(f.def||'');
-    if(isEdit && f.k==='note' && !val && admPersonaGroupNote) val=admPersonaGroupNote;
+    // 填報人備注：編輯時永遠以群組對應自動產生（允許覆蓋舊值）
+    if(isEdit && f.k==='note' && admPersonaGroupNote) val=admPersonaGroupNote;
       html+=`<div class="adm-fi${f.full?' full':''}">
         <label>${f.l}${f.r?'<span style="color:var(--ac);margin-left:2px">*</span>':''}</label>`;
       if(f.t==='select'){
@@ -1778,12 +1779,17 @@ function renderAdmTab(tab){
 async function admStartEdit(tab,idx){
   admEditIdx=idx;
   admPersonaGroupNote='';
-  // 填報人：依群組對應自動產生備注
+  // 填報人：依群組對應自動產生備注（每次編輯都重新產生）
   if(tab==='personas'){
     var persona=admRows[idx];
     var {data:pgs}=await sb.from('persona_groups').select('group_id').eq('persona_id',persona.id);
-    var groupNames=(pgs||[]).map(g=>G[g.group_id]?G[g.group_id].name:g.group_id).filter(Boolean);
-    if(groupNames.length>0) admPersonaGroupNote='服務：'+groupNames.join('、');
+    // 從全域 G（loadApp 已載入）或 admRelated 取得群組名稱
+    var groupNames=(pgs||[]).map(r=>{
+      var gName = G[r.group_id] ? G[r.group_id].name : null;
+      if(!gName){ var found=(admRelated['groups']||[]).find(gr=>gr.id===r.group_id); gName=found?found.name:r.group_id; }
+      return gName;
+    }).filter(Boolean);
+    admPersonaGroupNote = groupNames.length>0 ? '服務：'+groupNames.join('、') : '';
   }
   renderAdmTab(tab);
   document.getElementById('admBody').scrollTo({top:0,behavior:'smooth'});

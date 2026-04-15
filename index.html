@@ -683,6 +683,7 @@ textarea.sh{min-height:60px;resize:none;}
       <div class="adm-tab" data-tab="persona_groups" onclick="loadAdmTab('persona_groups')">群組對應</div>
       <div class="adm-tab" data-tab="ai_prompts" onclick="loadAdmTab('ai_prompts')">AI Prompt</div>
       <div class="adm-tab" data-tab="weekly_reports" onclick="loadAdmTab('weekly_reports')">週報記錄</div>
+      <div class="adm-tab" data-tab="app_settings" onclick="loadAdmTab('app_settings')">系統設定</div>
     </div>
     <div class="adm-body" id="admBody">
       <div style="padding:20px;color:var(--t3);text-align:center">請選擇資料表</div>
@@ -736,12 +737,7 @@ textarea.sh{min-height:60px;resize:none;}
 // ══════════════════════════════════════════════
 const SUPA_URL = 'https://zunactakynxzgvzoazul.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1bmFjdGFreW54emd2em9henVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDkyMjgsImV4cCI6MjA5MTcyNTIyOH0.z1RQKCkAQtvwp78qCFUPzSAu5wg57oyU56aQvIfjp-g';
-// Gemini API（開發階段）
-const GEMINI_KEY = 'AIzaSyAb8RN6JChGoU4AiMRTAaQZdeHvMql8ybQWKQBiHjjWuzHEs9Xg';
-const MODEL_NAME = 'gemini-2.0-flash-lite';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${GEMINI_KEY}`;
-// ⚠️ 正式上線時改回 Anthropic（ANTHROPIC_KEY 保留備用）
-const ANTHROPIC_KEY = '';
+// AI 設定從 Supabase app_settings 表動態載入（管理後台可切換）
 
 // ── Fallback Prompt（當 Supabase ai_prompts 表無資料時使用）──
 const FALLBACK_PROMPT_GROUP = `你是橘焱集團的總部主管。
@@ -844,6 +840,7 @@ var G = {}, BRANDS = {}, PERSONAS = [], RQ = {
 };
 var curPId='', ST={}, curPage='', savedData={}, aiPrompts={}, saveTimer=null, currentUser=null, appLoaded=false;
 var admPGEditPersonaId = null; // 群組對應分頁：目前編輯中的填報人
+var appSettings = {};           // 從 app_settings 表載入：ai_provider, gemini_key, gemini_model, anthropic_key, anthropic_model
 
 // ══════════════════════════════════════════════
 // AUTH
@@ -915,6 +912,11 @@ async function loadApp() {
     // Load ai_prompts
     const { data: prompts } = await sb.from('ai_prompts').select('*');
     (prompts||[]).forEach(p => { aiPrompts[p.id] = p.prompt_template; });
+
+    // Load app_settings（AI provider / keys）
+    const { data: settingsRows } = await sb.from('app_settings').select('*');
+    appSettings = {};
+    (settingsRows||[]).forEach(s => { appSettings[s.key] = s.value; });
 
     // Load saved data for this week
     const { data: reports } = await sb.from('weekly_reports')
@@ -1425,8 +1427,11 @@ async function generateAIReport(){
   // isXP 宣告在 try 外，避免 catch/finally 存取到 undefined
   var isXP = currentAISection === 'xp';
 
-  if(!GEMINI_KEY){
-    toast('請先填入 GEMINI_KEY', '#c03020');
+  // 從 appSettings 取得 provider 設定
+  var provider = appSettings.ai_provider || 'gemini';
+  var aiKey = provider === 'anthropic' ? (appSettings.anthropic_key||'') : (appSettings.gemini_key||'');
+  if(!aiKey){
+    toast('請至管理後台 > 系統設定填入 API Key', '#c03020');
     return;
   }
 
@@ -1454,22 +1459,37 @@ async function generateAIReport(){
       .replace(/\{\{manager\}\}/g, gr ? gr.mgr : 'Jerry')
       .replace(/\{\{fields\}\}/g, fields);
 
-    // ── Gemini API ──
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }]
-      })
-    });
+    var response, data, content;
 
-    if(!response.ok){
-      var errData = await response.json().catch(()=>({}));
-      throw new Error(errData.error?.message || `HTTP ${response.status}`);
+    if(provider === 'anthropic'){
+      // ── Anthropic Claude API ──
+      var claudeModel = appSettings.anthropic_model || 'claude-sonnet-4-20250514';
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': aiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model: claudeModel, max_tokens: 1500, messages: [{ role: 'user', content: promptText }] })
+      });
+      if(!response.ok){ var e1=await response.json().catch(()=>({})); throw new Error(e1.error?.message||`HTTP ${response.status}`); }
+      data = await response.json();
+      content = data.content?.[0]?.text || '生成失敗，請重試。';
+    } else {
+      // ── Google Gemini API ──
+      var geminiModel = appSettings.gemini_model || 'gemini-2.0-flash-lite';
+      var geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${aiKey}`;
+      response = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+      });
+      if(!response.ok){ var e2=await response.json().catch(()=>({})); throw new Error(e2.error?.message||`HTTP ${response.status}`); }
+      data = await response.json();
+      content = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗，請重試。';
     }
-
-    const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗，請重試。';
 
     // 儲存至 ai_reports
     await sb.from('ai_reports').insert({
@@ -1741,6 +1761,10 @@ const ADM_SCHEMA = {
     cols:['persona_id','week_key','section_id','field_key','value','updated_at'],
     colMap:{persona_id:'填報人',week_key:'週次',section_id:'段落',field_key:'欄位',value:'內容',updated_at:'更新時間'},
     fields:[]
+  },
+  app_settings:{
+    label:'系統設定', pk:'key', readonly:true,
+    cols:[], colMap:{}, fields:[]  // 由 renderSettingsTab() 自訂渲染
   }
 };
 
@@ -1792,6 +1816,7 @@ async function loadAdmTab(tab){
 
 function renderAdmTab(tab){
   if(tab==='persona_groups'){ renderPGTab(); return; }
+  if(tab==='app_settings'){ renderSettingsTab(); return; }
   var sc=ADM_SCHEMA[tab];
   var body=document.getElementById('admBody');
   var html='';
@@ -2066,6 +2091,108 @@ async function pgClearAll(pId,pName){
   if(error){ toast('清除失敗：'+error.message,'#c03020'); return; }
   toast('已清除','#444');
   await loadAdmTab('persona_groups');
+}
+
+// ══════════════════════════════════════════════
+// 系統設定（AI Provider / Keys）
+// ══════════════════════════════════════════════
+function renderSettingsTab(){
+  var body=document.getElementById('admBody');
+  var s=appSettings;
+  var prov=s.ai_provider||'gemini';
+  var gemKey=s.gemini_key||''; var gemMod=s.gemini_model||'gemini-2.0-flash-lite';
+  var antKey=s.anthropic_key||''; var antMod=s.anthropic_model||'claude-sonnet-4-20250514';
+
+  function provLabelStyle(which){
+    var on=(prov===which);
+    return `display:flex;align-items:center;gap:8px;padding:10px 18px;border:1px solid ${on?'var(--ab)':'var(--bd)'};border-radius:8px;cursor:pointer;background:${on?'var(--al)':'var(--sf)'};transition:all .12s`;
+  }
+  function keyDisplay(k){ return k?'已設定（'+k.slice(0,12)+'…）':'⚠ 未設定'; }
+
+  body.innerHTML=`
+  <div class="adm-form">
+    <div class="adm-form-t">⚙ AI 服務設定 <span>修改後點「儲存設定」生效</span></div>
+    <div class="adm-fgrid">
+
+      <div class="adm-fi full">
+        <label>AI 服務選擇</label>
+        <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">
+          <label id="stlb_gemini" style="${provLabelStyle('gemini')}">
+            <input type="radio" name="st_provider" value="gemini"${prov==='gemini'?' checked':''}
+              style="accent-color:var(--ac)" onchange="stProvChange(this)">
+            <span style="font-size:13px">🔷 Google Gemini</span>
+          </label>
+          <label id="stlb_anthropic" style="${provLabelStyle('anthropic')}">
+            <input type="radio" name="st_provider" value="anthropic"${prov==='anthropic'?' checked':''}
+              style="accent-color:var(--ac)" onchange="stProvChange(this)">
+            <span style="font-size:13px">🟠 Anthropic Claude</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="adm-fi full" style="border-top:1px solid var(--bd);padding-top:12px;margin-top:4px">
+        <label style="font-size:11px;font-weight:600;color:var(--pj);letter-spacing:.05em">🔷 GOOGLE GEMINI</label>
+      </div>
+      <div class="adm-fi">
+        <label>Gemini API Key</label>
+        <input type="text" id="st_gemini_key" value="${escapeHtml(gemKey)}" placeholder="AIzaSy...">
+      </div>
+      <div class="adm-fi">
+        <label>Model</label>
+        <input type="text" id="st_gemini_model" value="${escapeHtml(gemMod)}" placeholder="gemini-2.0-flash-lite">
+      </div>
+
+      <div class="adm-fi full" style="border-top:1px solid var(--bd);padding-top:12px;margin-top:4px">
+        <label style="font-size:11px;font-weight:600;color:var(--ac);letter-spacing:.05em">🟠 ANTHROPIC CLAUDE</label>
+      </div>
+      <div class="adm-fi">
+        <label>Anthropic API Key</label>
+        <input type="text" id="st_anthropic_key" value="${escapeHtml(antKey)}" placeholder="sk-ant-...">
+      </div>
+      <div class="adm-fi">
+        <label>Model</label>
+        <input type="text" id="st_anthropic_model" value="${escapeHtml(antMod)}" placeholder="claude-sonnet-4-20250514">
+      </div>
+
+    </div>
+    <div class="adm-form-foot">
+      <button class="adm-sub" onclick="settingsSave()">儲存設定</button>
+    </div>
+  </div>
+
+  <div class="adm-form" style="background:var(--pjl);border-color:var(--pjb)">
+    <div class="adm-form-t" style="color:var(--pj)">目前使用中</div>
+    <div style="font-size:13px;color:var(--t2);line-height:2">
+      AI 服務：<strong>${prov==='anthropic'?'Anthropic Claude':'Google Gemini'}</strong><br>
+      模型：<strong>${prov==='anthropic'?antMod:gemMod}</strong><br>
+      API Key：<strong>${prov==='anthropic'?keyDisplay(antKey):keyDisplay(gemKey)}</strong>
+    </div>
+  </div>`;
+}
+
+function stProvChange(radio){
+  ['gemini','anthropic'].forEach(which=>{
+    var lb=document.getElementById('stlb_'+which); if(!lb) return;
+    var on=(which===radio.value);
+    lb.style.background=on?'var(--al)':'var(--sf)';
+    lb.style.borderColor=on?'var(--ab)':'var(--bd)';
+  });
+}
+
+async function settingsSave(){
+  var prov=document.querySelector('input[name=st_provider]:checked')?.value||'gemini';
+  var rows=[
+    {key:'ai_provider',   value:prov},
+    {key:'gemini_key',    value:document.getElementById('st_gemini_key')?.value.trim()||''},
+    {key:'gemini_model',  value:document.getElementById('st_gemini_model')?.value.trim()||'gemini-2.0-flash-lite'},
+    {key:'anthropic_key', value:document.getElementById('st_anthropic_key')?.value.trim()||''},
+    {key:'anthropic_model',value:document.getElementById('st_anthropic_model')?.value.trim()||'claude-sonnet-4-20250514'}
+  ];
+  var {error}=await sb.from('app_settings').upsert(rows,{onConflict:'key'});
+  if(error){ toast('儲存失敗：'+error.message,'#c03020'); return; }
+  rows.forEach(r=>{ appSettings[r.key]=r.value; });
+  toast('✓ 系統設定已儲存','#3d7020');
+  renderSettingsTab();
 }
 
 async function reloadPersonas(){

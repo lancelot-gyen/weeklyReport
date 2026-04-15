@@ -634,7 +634,7 @@ var curPId='', ST={}, curPage='', savedData={}, aiPrompts={}, saveTimer=null, cu
 async function signInGoogle() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname }
+    options: { redirectTo: 'https://verdant-snickerdoodle-372900.netlify.app/' }
   });
   if (error) toast('登入失敗：' + error.message, '#c03020');
 }

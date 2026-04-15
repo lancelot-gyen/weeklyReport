@@ -10,7 +10,7 @@
 | 項目 | 內容 |
 |------|------|
 | 檔案 | `D:\claude\claude\週報\index.html` |
-| 部署 | https://verdant-snickerdoodle-372900.netlify.app/ |
+| 部署 | https://lancelot-gyen.github.io/weeklyReport/ |
 | Repo | https://github.com/lancelot-gyen/weeklyReport |
 | 後端 | Supabase (`https://zunactakynxzgvzoazul.supabase.co`) |
 | 認證 | Google OAuth via Supabase |

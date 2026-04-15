@@ -799,21 +799,21 @@ async function loadApp() {
     // Load personas with groups
     const { data: personas } = await sb.from('personas').select('*');
     const { data: pgLinks } = await sb.from('persona_groups').select('*');
-    PERSONAS = personas.map(p => ({
+    PERSONAS = (personas||[]).map(p => ({
       ...p,
       xp: p.has_cross_group,
-      groups: pgLinks.filter(l => l.persona_id === p.id).map(l => l.group_id)
+      groups: (pgLinks||[]).filter(l => String(l.persona_id) === String(p.id)).map(l => l.group_id)
     }));
 
     // Load ai_prompts
     const { data: prompts } = await sb.from('ai_prompts').select('*');
-    prompts.forEach(p => { aiPrompts[p.id] = p.prompt_template; });
+    (prompts||[]).forEach(p => { aiPrompts[p.id] = p.prompt_template; });
 
     // Load saved data for this week
     const { data: reports } = await sb.from('weekly_reports')
       .select('*')
       .eq('week_key', WEEK_KEY);
-    
+
     // Group by persona
     savedData = {};
     (reports || []).forEach(r => {
@@ -823,7 +823,8 @@ async function loadApp() {
 
     // Auto-select persona by email if logged in
     if (currentUser && currentUser.email) {
-      const matched = PERSONAS.find(p => p.email === currentUser.email);
+      const emailLower = currentUser.email.toLowerCase();
+      const matched = PERSONAS.find(p => p.email && p.email.toLowerCase() === emailLower);
       if (matched) curPId = matched.id;
     }
     if (!curPId && PERSONAS.length > 0) curPId = PERSONAS[0].id;
@@ -1970,11 +1971,12 @@ async function reloadPersonas(){
   PERSONAS=(personas||[]).map(p=>({
     ...p,
     xp:p.has_cross_group,
-    groups:(pgLinks||[]).filter(l=>l.persona_id===p.id).map(l=>l.group_id)
+    groups:(pgLinks||[]).filter(l=>String(l.persona_id)===String(p.id)).map(l=>l.group_id)
   }));
   // Re-match curPId to logged-in user
   if(currentUser&&currentUser.email){
-    var matched=PERSONAS.find(p=>p.email===currentUser.email);
+    var emailLower=currentUser.email.toLowerCase();
+    var matched=PERSONAS.find(p=>p.email&&p.email.toLowerCase()===emailLower);
     if(matched) curPId=matched.id;
   }
   buildUI();

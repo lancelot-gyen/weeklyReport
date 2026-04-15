@@ -897,7 +897,7 @@ var appSettings = {};           // 從 app_settings 表載入：ai_provider, gem
 async function signInGoogle() {
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: 'https://verdant-snickerdoodle-372900.netlify.app/' }
+    options: { redirectTo: window.location.origin + window.location.pathname }
   });
   if (error) toast('登入失敗：' + error.message, '#c03020');
 }

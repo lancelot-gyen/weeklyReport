@@ -1479,14 +1479,36 @@ async function generateAIReport(){
       content = data.content?.[0]?.text || '生成失敗，請重試。';
     } else {
       // ── Google Gemini API ──
-      var geminiModel = appSettings.gemini_model || 'gemini-2.0-flash-lite';
-      var geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${aiKey}`;
+      var rawModel = appSettings.gemini_model || 'gemini-1.5-flash';
+      // 清除多餘的 models/ 前綴，避免重複拼接
+      var cleanModel = rawModel.replace(/^models\//,'');
+      var geminiBase = 'https://generativelanguage.googleapis.com/v1/models/';
+      var geminiUrl = `${geminiBase}${cleanModel}:generateContent?key=${aiKey}`;
+      console.log('[Gemini] 請求 URL:', geminiUrl);
+
+      var geminiBody = JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] });
       response = await fetch(geminiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
+        body: geminiBody
       });
-      if(!response.ok){ var e2=await response.json().catch(()=>({})); throw new Error(e2.error?.message||`HTTP ${response.status}`); }
+
+      // 404 時自動備援至 gemini-1.5-flash-latest
+      if(response.status === 404){
+        var fallbackUrl = `${geminiBase}gemini-1.5-flash-latest:generateContent?key=${aiKey}`;
+        console.warn('[Gemini] 404，備援 URL:', fallbackUrl);
+        response = await fetch(fallbackUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: geminiBody
+        });
+      }
+
+      if(!response.ok){
+        var e2=await response.json().catch(()=>({}));
+        console.error('[Gemini] 錯誤回應 URL:', geminiUrl, e2);
+        throw new Error(e2.error?.message||`HTTP ${response.status}`);
+      }
       data = await response.json();
       content = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗，請重試。';
     }
@@ -2100,7 +2122,7 @@ function renderSettingsTab(){
   var body=document.getElementById('admBody');
   var s=appSettings;
   var prov=s.ai_provider||'gemini';
-  var gemKey=s.gemini_key||''; var gemMod=s.gemini_model||'gemini-2.0-flash-lite';
+  var gemKey=s.gemini_key||''; var gemMod=s.gemini_model||'gemini-1.5-flash';
   var antKey=s.anthropic_key||''; var antMod=s.anthropic_model||'claude-sonnet-4-20250514';
 
   function provLabelStyle(which){
@@ -2139,7 +2161,7 @@ function renderSettingsTab(){
       </div>
       <div class="adm-fi">
         <label>Model</label>
-        <input type="text" id="st_gemini_model" value="${escapeHtml(gemMod)}" placeholder="gemini-2.0-flash-lite">
+        <input type="text" id="st_gemini_model" value="${escapeHtml(gemMod)}" placeholder="gemini-1.5-flash">
       </div>
 
       <div class="adm-fi full" style="border-top:1px solid var(--bd);padding-top:12px;margin-top:4px">
@@ -2184,7 +2206,7 @@ async function settingsSave(){
   var rows=[
     {key:'ai_provider',   value:prov},
     {key:'gemini_key',    value:document.getElementById('st_gemini_key')?.value.trim()||''},
-    {key:'gemini_model',  value:document.getElementById('st_gemini_model')?.value.trim()||'gemini-2.0-flash-lite'},
+    {key:'gemini_model',  value:document.getElementById('st_gemini_model')?.value.trim()||'gemini-1.5-flash'},
     {key:'anthropic_key', value:document.getElementById('st_anthropic_key')?.value.trim()||''},
     {key:'anthropic_model',value:document.getElementById('st_anthropic_model')?.value.trim()||'claude-sonnet-4-20250514'}
   ];

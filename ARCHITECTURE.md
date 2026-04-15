@@ -80,12 +80,9 @@
 | `.sbi-hist` | sidebar 週報查詢按鈕（藍色） |
 | `.submit-ov` | 送出週報預覽 overlay（`z:8100`，`.open` 顯示） |
 | `.submit-wrap` | 送出預覽容器（max-width 900px） |
-| `.submit-foot` | 送出預覽底部按鈕列（取消 + 確認送出） |
+| `.submit-foot` | *(已移至 `.aifo` 行內，含取消 + 確認送出按鈕)* |
 | `.submit-cancel` | 取消按鈕 |
 | `.submit-confirm` | 確認送出按鈕（橘色，disabled 時灰化） |
-| `.submit-ai-sec` | 預覽中 AI 報告區塊（漸層背景） |
-| `.submit-ai-hd` | AI 報告區塊標頭（icon + 標題 + 時間） |
-| `.submit-ai-body` | AI 報告內文（max-height 200px，scrollable） |
 
 ---
 
@@ -124,10 +121,11 @@ body
 │       ├── #admTabs     分頁（6個）
 │       └── #admBody     動態內容
 ├── #submitOv            送出週報預覽 overlay（z:8100）
-│   └── .submit-wrap
-│       ├── .hist-hd     標頭（重用 hist 樣式）
-│       ├── #submitBody  唯讀預覽內容（同 hist 格式 + AI 報告）
-│       └── .submit-foot 取消 / 確認送出按鈕
+│   └── .submit-wrap（flex column，重用 AI 面板視覺）
+│       ├── .aih（黑底）  標頭 + #submitProgBadge 進度文字
+│       ├── #submitTabs  group tabs（重用 .ai-tab / .ai-section-tabs）
+│       ├── #submitBody  AI 報告內容（重用 .aibl/.aitx）
+│       └── .aifo         說明文字 + 取消 / 確認送出按鈕
 └── #mobNav              手機底部導覽
     ├── #mn-shared       共用
     ├── #mn-groups       群組
@@ -328,6 +326,7 @@ settingsSave()
 ### 送出週報預覽
 ```javascript
 var aiReportCache = {};   // { [gid|'xp']: ai_reports row }
+var submitCurTab = null;  // 目前選中的 submit tab
 
 async loadAIReportCache()
   // 查詢 ai_reports 表（本週 + 本 persona），最新一筆 per group
@@ -335,19 +334,27 @@ async loadAIReportCache()
 
 updateSidebarAIBadges()
   // 遍歷 p.groups (+ xp) 的 sidebar 元素
-  // 若 aiReportCache[sid] 存在 → 插入 .sb-ai-dot（'✦ AI'）badge
+  // 若 aiReportCache[sid] 存在 → 插入 .sb-ai-dot（'✦ AI'）badge，badge 有 onclick → openAIFor(sid)
   // 否則移除已存在的 badge
 
+openAIFor(sid)
+  // showPage(sid) → 打開 AI 面板(aiPanel.classList.add('open')) → setAITab(sid)
+  // 從 sidebar +AI badge 點擊觸發
+
 async openSubmitPreview()
-  // saveCurrentPage() → 載入 weekly_reports → loadAIReportCache()
-  // 開啟 #submitOv → renderSubmitPreview(hd)
+  // saveCurrentPage() → loadAIReportCache()
+  // 計算完成進度 → 更新 #submitProgBadge
+  // 建立 #submitTabs（xp + groups）
+  // 開啟 #submitOv → submitSetTab(firstTab)
 
-closeSubmitPreview()    // 關閉 #submitOv
-submitOvClick(e)        // 點背景關閉
+submitSetTab(sid)
+  // 切換 #submitTabs 選中狀態
+  // 若 aiReportCache[sid] 存在：顯示報告內容（.aibl.result + .aitx）+ 複製按鈕
+  // 否則：顯示「尚未生成 AI 週報」提示
 
-renderSubmitPreview(hd)
-  // 同 renderHistReport 格式：進度條 → ss/sm/sc/sv → xp → 各群
-  // 每個 group/xp 區塊後若有 aiReportCache 則附加 .submit-ai-sec
+submitCopyAI()         // 複製 #submitAiText 文字到剪貼簿
+closeSubmitPreview()   // 關閉 #submitOv
+submitOvClick(e)       // 點背景關閉
 
 async confirmSubmit()
   // saveCurrentPage() → upsert weekly_reports(section_id='_submit_', field_key='submitted')
@@ -572,6 +579,7 @@ RQ = {
 | 2026-04-15 | AI key/provider 改存 app_settings 表，管理後台新增「系統設定」tab 可切換 Gemini/Anthropic |
 | 2026-04-15 | 新增送出週報預覽 Modal（`#submitOv`）：全週資料唯讀確認 + AI 報告展示，確認後寫 `_submit_` marker |
 | 2026-04-15 | 新增 Sidebar AI badge（`.sb-ai-dot`）：各群/xp 有 AI 報告時顯示「✦ AI」小標籤 |
+| 2026-04-15 | 重構送出週報預覽：改為 AI 面板同款視覺（tabs + aibl content）；移除底部列「預覽 AI 生成週報」按鈕；`+AI` badge 可點擊開啟 AI 面板；多群報告各自獨立 tab |
 
 ---
 

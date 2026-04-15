@@ -736,6 +736,7 @@ var G = {}, BRANDS = {}, PERSONAS = [], RQ = {
   'default':[{lbl:'本週完成',ph:'不用整理格式，想到什麼說什麼就好'},{lbl:'進行中',ph:'進行中的工作，可附進度百分比'},{lbl:'卡關或待處理',ph:'說明卡關原因，沒有可留空'},{lbl:'下週計畫',ph:'下週重點'}]
 };
 var curPId='', ST={}, curPage='', savedData={}, aiPrompts={}, saveTimer=null, currentUser=null, appLoaded=false;
+var admPGEditPersonaId = null; // 群組對應分頁：目前編輯中的填報人
 
 // ══════════════════════════════════════════════
 // AUTH
@@ -1686,6 +1687,7 @@ async function loadAdmTab(tab){
 }
 
 function renderAdmTab(tab){
+  if(tab==='persona_groups'){ renderPGTab(); return; }
   var sc=ADM_SCHEMA[tab];
   var body=document.getElementById('admBody');
   var html='';
@@ -1848,6 +1850,129 @@ async function admDelete(tab,idx){
   if(error){ toast('刪除失敗：'+error.message,'#c03020'); return; }
   toast('已刪除','#444');
   await loadAdmTab(tab);
+}
+
+// ══════════════════════════════════════════════
+// 群組對應 自訂 UI（一人多群）
+// ══════════════════════════════════════════════
+function renderPGTab(){
+  var personas = admRelated['personas'] || [];
+  var groups   = admRelated['groups']   || [];
+  // 從 admRows 建立 persona_id → [group_id] 的 Map
+  var pgMap = {};
+  admRows.forEach(r=>{ if(!pgMap[r.persona_id]) pgMap[r.persona_id]=[]; pgMap[r.persona_id].push(r.group_id); });
+
+  var editPId = admPGEditPersonaId;
+  var editGIds = editPId ? (pgMap[editPId]||[]) : [];
+
+  var html = `<div class="adm-form">
+    <div class="adm-form-t">${editPId?'✏ 編輯群組對應':'＋ 設定群組對應'} <span>選擇填報人後勾選所屬事業群，可多選</span></div>
+    <div class="adm-fgrid">
+      <div class="adm-fi">
+        <label>填報人 <span style="color:var(--ac)">*</span></label>
+        <select id="pg_persona" onchange="pgSelectPersona(this.value)">
+          <option value="">-- 選擇填報人 --</option>
+          ${personas.map(p=>`<option value="${p.id}"${editPId===p.id?' selected':''}>${p.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="adm-fi full">
+        <label>對應事業群（可多選）</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="pgGroupCbs">`;
+
+  groups.forEach(g=>{
+    var ck = editGIds.includes(g.id);
+    html+=`<label id="pglb_${g.id}" style="display:flex;align-items:center;gap:7px;padding:9px 14px;
+      border:1px solid ${ck?'var(--ab)':'var(--bd)'};border-radius:8px;cursor:pointer;
+      background:${ck?'var(--al)':'var(--sf)'};transition:all .12s;user-select:none;">
+      <input type="checkbox" name="pg_group" value="${g.id}"${ck?' checked':''}
+        style="width:16px;height:16px;accent-color:var(--ac);cursor:pointer"
+        onchange="pgCbChange(this)">
+      <span style="font-size:13px;color:var(--t)">${g.name}</span>
+    </label>`;
+  });
+
+  html+=`</div></div></div>
+    <div class="adm-form-foot">
+      <button class="adm-sub" onclick="pgSave()">儲存群組對應</button>
+      ${editPId?`<button class="adm-cancel" onclick="pgClear()">取消</button>`:''}
+    </div>
+  </div>
+
+  <div class="adm-tbl-wrap"><table class="adm-tbl">
+    <thead><tr><th>填報人</th><th>對應事業群</th><th>操作</th></tr></thead>
+    <tbody>`;
+
+  if(personas.length===0){
+    html+=`<tr><td colspan="3" style="text-align:center;color:var(--t3);padding:24px">尚無填報人資料</td></tr>`;
+  }
+  personas.forEach(p=>{
+    var gIds = pgMap[p.id]||[];
+    var badges = gIds.map(gid=>{
+      var g=groups.find(gr=>gr.id===gid);
+      return `<span style="font-size:11px;padding:3px 9px;border-radius:4px;
+        background:var(--pjl);color:var(--pj);border:1px solid var(--pjb);white-space:nowrap">${g?g.name:gid}</span>`;
+    }).join('');
+    html+=`<tr>
+      <td style="white-space:nowrap;font-weight:500">${p.name}</td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:5px">${badges||'<span style="color:var(--t3);font-size:12px">未設定</span>'}</div></td>
+      <td><div class="adm-acts">
+        <button class="adm-eb e" onclick="pgEdit('${p.id}')">編輯</button>
+        <button class="adm-eb d" onclick="pgClearAll('${p.id}','${p.name}')">清除</button>
+      </div></td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  document.getElementById('admBody').innerHTML=html;
+}
+
+function pgCbChange(cb){
+  var lb=document.getElementById('pglb_'+cb.value);
+  if(!lb) return;
+  lb.style.background=cb.checked?'var(--al)':'var(--sf)';
+  lb.style.borderColor=cb.checked?'var(--ab)':'var(--bd)';
+}
+
+function pgSelectPersona(pId){
+  admPGEditPersonaId=pId||null;
+  var pgMap={};
+  admRows.forEach(r=>{ if(!pgMap[r.persona_id]) pgMap[r.persona_id]=[]; pgMap[r.persona_id].push(r.group_id); });
+  var gIds=pId?(pgMap[pId]||[]):[];
+  document.querySelectorAll('input[name=pg_group]').forEach(cb=>{
+    cb.checked=gIds.includes(cb.value);
+    pgCbChange(cb);
+  });
+}
+
+function pgEdit(pId){
+  admPGEditPersonaId=pId;
+  renderPGTab();
+  document.getElementById('admBody').scrollTo({top:0,behavior:'smooth'});
+}
+function pgClear(){ admPGEditPersonaId=null; renderPGTab(); }
+
+async function pgClearAll(pId,pName){
+  if(!confirm(`確定清除「${pName}」的所有群組對應？`)) return;
+  var {error}=await sb.from('persona_groups').delete().eq('persona_id',pId);
+  if(error){ toast('清除失敗：'+error.message,'#c03020'); return; }
+  toast('已清除','#444');
+  await loadAdmTab('persona_groups');
+}
+
+async function pgSave(){
+  var pId=admPGEditPersonaId||document.getElementById('pg_persona')?.value;
+  if(!pId){ toast('請選擇填報人','#c03020'); return; }
+  var checked=[];
+  document.querySelectorAll('input[name=pg_group]:checked').forEach(cb=>checked.push(cb.value));
+  // 刪除現有對應，重新插入
+  var {error:de}=await sb.from('persona_groups').delete().eq('persona_id',pId);
+  if(de){ toast('儲存失敗：'+de.message,'#c03020'); return; }
+  if(checked.length>0){
+    var {error:ie}=await sb.from('persona_groups').insert(checked.map(gId=>({persona_id:pId,group_id:gId})));
+    if(ie){ toast('儲存失敗：'+ie.message,'#c03020'); return; }
+  }
+  toast('✓ 群組對應已儲存','#3d7020');
+  admPGEditPersonaId=null;
+  await loadAdmTab('persona_groups');
 }
 
 // ══════════════════════════════════════════════

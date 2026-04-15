@@ -762,6 +762,12 @@ async function initAuth() {
       currentUser = session.user;
       document.getElementById('loginScreen').style.display = 'none';
       await loadApp();
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      clearTimeout(idleTimer);
+      document.getElementById('loadingApp').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('admOv').classList.remove('open');
     }
   });
 }
@@ -821,6 +827,7 @@ async function loadApp() {
     document.getElementById('loadingApp').style.display = 'none';
     buildUI();
     startAutoSave();
+    startIdleTracking();
   } catch(e) {
     console.error(e);
     toast('載入失敗，請重新整理', '#c03020');
@@ -1511,19 +1518,46 @@ function toast(msg,color){
 // ══════════════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════════════
-const ADMIN_EMAILS = ['lancelot@gyen.com.tw'];
-function isAdmin(){ return !!(currentUser && ADMIN_EMAILS.includes(currentUser.email)); }
+function isAdmin(){
+  if(!currentUser) return false;
+  // 硬編碼 bootstrap 管理員
+  if(['lancelot@gyen.com.tw'].includes(currentUser.email)) return true;
+  // 資料庫驅動：persona 的 is_admin=true 且 email 相符
+  return PERSONAS.some(p => p.is_admin && p.email && p.email === currentUser.email);
+}
 
 var admCurTab = 'groups';
 var admRows = [];
 var admEditIdx = -1;
 var admRelated = {};
+var admRoles = [];        // 現有職能清單（來自 personas 表）
+var admPersonaGroupNote = ''; // 填報人備註自動產生暫存
+
+// 閒置自動登出
+var idleTimer = null;
+var IDLE_TIMEOUT = 10 * 60 * 1000; // 10 分鐘
+function resetIdleTimer(){
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(doAutoLogout, IDLE_TIMEOUT);
+}
+async function doAutoLogout(){
+  clearTimeout(idleTimer);
+  await sb.auth.signOut();
+  // onAuthStateChange SIGNED_OUT 會處理 UI 切換
+}
+function startIdleTracking(){
+  ['mousemove','mousedown','keydown','touchstart','scroll','click'].forEach(ev=>{
+    document.addEventListener(ev, resetIdleTimer, {passive:true});
+  });
+  resetIdleTimer();
+}
 
 // 資料表 schema 定義
 const ADM_SCHEMA = {
   groups:{
     label:'事業群', pk:'id', sortBy:'sort_order',
     cols:['id','name','manager','sort_order'],
+    colMap:{id:'ID',name:'名稱',manager:'負責人',sort_order:'排序'},
     fields:[
       {k:'id',l:'ID',t:'text',r:true,hint:'e.g. g1'},
       {k:'name',l:'名稱',t:'text',r:true},
@@ -1534,6 +1568,7 @@ const ADM_SCHEMA = {
   brands:{
     label:'品牌', pk:'id', sortBy:'sort_order',
     cols:['id','group_id','name','sort_order'],
+    colMap:{id:'ID',group_id:'事業群',name:'品牌名稱',sort_order:'排序'},
     fields:[
       {k:'id',l:'ID',t:'text',r:true},
       {k:'group_id',l:'事業群',t:'select',src:'groups',srcL:'name',r:true},
@@ -1543,21 +1578,24 @@ const ADM_SCHEMA = {
   },
   personas:{
     label:'填報人', pk:'id',
-    cols:['id','name','init','color','role','note','has_cross_group','email'],
+    cols:['id','name','init','color','role','note','has_cross_group','is_admin','email'],
+    colMap:{id:'ID',name:'姓名',init:'頭像文字',color:'顏色',role:'職能',note:'備注',has_cross_group:'跨群進度',is_admin:'管理者',email:'Email'},
     fields:[
       {k:'id',l:'ID',t:'text',r:true},
       {k:'name',l:'姓名',t:'text',r:true},
       {k:'init',l:'頭像文字',t:'text',r:true,hint:'1-2字'},
       {k:'color',l:'頭像顏色',t:'color',r:true},
-      {k:'role',l:'職能',t:'text',r:true},
-      {k:'note',l:'備注',t:'text'},
+      {k:'role',l:'職能',t:'role',r:true},
+      {k:'note',l:'備注（自動產生）',t:'text'},
       {k:'email',l:'Email',t:'email'},
-      {k:'has_cross_group',l:'有跨群進度',t:'checkbox'}
+      {k:'has_cross_group',l:'有跨群進度填報',t:'checkbox'},
+      {k:'is_admin',l:'管理者權限',t:'checkbox'}
     ]
   },
   persona_groups:{
     label:'群組對應', pk:['persona_id','group_id'],
     cols:['persona_id','group_id'],
+    colMap:{persona_id:'填報人',group_id:'事業群'},
     fields:[
       {k:'persona_id',l:'填報人',t:'select',src:'personas',srcL:'name',r:true},
       {k:'group_id',l:'事業群',t:'select',src:'groups',srcL:'name',r:true}
@@ -1566,6 +1604,7 @@ const ADM_SCHEMA = {
   ai_prompts:{
     label:'AI Prompt', pk:'id',
     cols:['id','label'],
+    colMap:{id:'ID',label:'標籤'},
     fields:[
       {k:'id',l:'ID',t:'text',r:true,hint:'group_report / cross_group_report'},
       {k:'label',l:'標籤',t:'text',r:true},
@@ -1575,6 +1614,7 @@ const ADM_SCHEMA = {
   weekly_reports:{
     label:'週報記錄', pk:'id', readonly:true,
     cols:['persona_id','week_key','section_id','field_key','value','updated_at'],
+    colMap:{persona_id:'填報人',week_key:'週次',section_id:'段落',field_key:'欄位',value:'內容',updated_at:'更新時間'},
     fields:[]
   }
 };
@@ -1588,7 +1628,7 @@ function closeAdmin(){ document.getElementById('admOv').classList.remove('open')
 function admOvClick(e){ if(e.target===document.getElementById('admOv')) closeAdmin(); }
 
 async function loadAdmTab(tab){
-  admCurTab=tab; admEditIdx=-1;
+  admCurTab=tab; admEditIdx=-1; admPersonaGroupNote='';
   document.querySelectorAll('.adm-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
   var body=document.getElementById('admBody');
   body.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3)">載入中...</div>';
@@ -1602,6 +1642,12 @@ async function loadAdmTab(tab){
       var {data:rd}=await sb.from(f.src).select('id,name').order('sort_order',{ascending:true}).order('id');
       admRelated[f.src]=rd||[];
     }
+  }
+
+  // 填報人：載入現有職能清單
+  if(tab==='personas'){
+    var {data:roleData}=await sb.from('personas').select('role');
+    admRoles=[...new Set((roleData||[]).map(r=>r.role).filter(Boolean))].sort();
   }
 
   // 載入資料
@@ -1627,16 +1673,26 @@ function renderAdmTab(tab){
       <div class="adm-form-t">${isEdit?'✏ 編輯':'＋ 新增'}${sc.label} <span>${isEdit?'修改後點「儲存」':'填寫後點「新增」'}</span></div>
       <div class="adm-fgrid">`;
     sc.fields.forEach(f=>{
-      var val=row[f.k]!==undefined?row[f.k]:(f.def||'');
+      // 填報人備注：若目前空白則自動帶入群組對應產生的文字
+    var val=row[f.k]!==undefined?row[f.k]:(f.def||'');
+    if(isEdit && f.k==='note' && !val && admPersonaGroupNote) val=admPersonaGroupNote;
       html+=`<div class="adm-fi${f.full?' full':''}">
         <label>${f.l}${f.r?'<span style="color:var(--ac);margin-left:2px">*</span>':''}</label>`;
       if(f.t==='select'){
-        var opts=(admRelated[f.src]||[]).map(o=>`<option value="${o.id}"${val===o.id?' selected':''}>${o.id} - ${o[f.srcL]||''}</option>`).join('');
+        var opts=(admRelated[f.src]||[]).map(o=>`<option value="${o.id}"${val===o.id?' selected':''}>${o.id} — ${o[f.srcL]||''}</option>`).join('');
         html+=`<select id="adf_${f.k}"><option value="">-- 選擇 --</option>${opts}</select>`;
+      } else if(f.t==='role'){
+        // 職能：下拉選單（含現有職能，可自行輸入）
+        var listId='adf_role_dl';
+        var roleOpts=admRoles.map(r=>`<option value="${r}">`).join('');
+        html+=`<input type="text" id="adf_${f.k}" list="${listId}" value="${escapeHtml(String(val))}" placeholder="選擇或輸入職能">
+          <datalist id="${listId}">${roleOpts}</datalist>`;
       } else if(f.t==='textarea'){
         html+=`<textarea id="adf_${f.k}" placeholder="${f.hint||''}">${escapeHtml(String(val))}</textarea>`;
       } else if(f.t==='checkbox'){
-        html+=`<input type="checkbox" id="adf_${f.k}"${val?' checked':''}> <label for="adf_${f.k}" style="font-size:13px;color:var(--t2)">${f.l}</label>`;
+        var checked=val===true||val==='true';
+        html+=`<div style="display:flex;align-items:center;gap:8px;padding-top:6px">
+          <input type="checkbox" id="adf_${f.k}"${checked?' checked':''}></div>`;
       } else {
         html+=`<input type="${f.t}" id="adf_${f.k}" value="${escapeHtml(String(val))}" placeholder="${f.hint||''}"${isEdit&&f.k===sc.pk?' readonly style="background:#f0f0ee;color:var(--t3);"':''}>`;
       }
@@ -1650,7 +1706,7 @@ function renderAdmTab(tab){
 
   // 資料表
   html+='<div class="adm-tbl-wrap"><table class="adm-tbl"><thead><tr>';
-  sc.cols.forEach(c=>{ html+=`<th>${c}</th>`; });
+  sc.cols.forEach(c=>{ html+=`<th>${(sc.colMap&&sc.colMap[c])||c}</th>`; });
   if(!sc.readonly) html+='<th>操作</th>';
   html+='</tr></thead><tbody>';
 
@@ -1682,8 +1738,16 @@ function renderAdmTab(tab){
   body.innerHTML=html;
 }
 
-function admStartEdit(tab,idx){
+async function admStartEdit(tab,idx){
   admEditIdx=idx;
+  admPersonaGroupNote='';
+  // 填報人：依群組對應自動產生備注
+  if(tab==='personas'){
+    var persona=admRows[idx];
+    var {data:pgs}=await sb.from('persona_groups').select('group_id').eq('persona_id',persona.id);
+    var groupNames=(pgs||[]).map(g=>G[g.group_id]?G[g.group_id].name:g.group_id).filter(Boolean);
+    if(groupNames.length>0) admPersonaGroupNote='服務：'+groupNames.join('、');
+  }
   renderAdmTab(tab);
   document.getElementById('admBody').scrollTo({top:0,behavior:'smooth'});
 }

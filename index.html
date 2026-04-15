@@ -1659,7 +1659,12 @@ async function loadAdmTab(tab){
   admRelated={};
   for(var f of sc.fields){
     if(f.src && !admRelated[f.src]){
-      var {data:rd}=await sb.from(f.src).select('id,name').order('sort_order',{ascending:true}).order('id');
+      // personas 沒有 sort_order 欄位，改用 name 排序
+      var hasSort=['groups','brands'].includes(f.src);
+      var rq=sb.from(f.src).select('id,name');
+      if(hasSort) rq=rq.order('sort_order',{ascending:true});
+      rq=rq.order('name',{ascending:true});
+      var {data:rd}=await rq;
       admRelated[f.src]=rd||[];
     }
   }
@@ -1733,16 +1738,26 @@ function renderAdmTab(tab){
   if(admRows.length===0){
     html+=`<tr><td colspan="${sc.cols.length+(sc.readonly?0:1)}" style="text-align:center;color:var(--t3);padding:24px">尚無資料</td></tr>`;
   }
+  // 建立外鍵欄位 → admRelated 的對照表（用於 Grid 顯示名稱）
+  var colRelMap={};
+  sc.fields.forEach(f=>{ if(f.src && f.srcL) colRelMap[f.k]={src:f.src,lbl:f.srcL}; });
+
   admRows.forEach((row,idx)=>{
     html+=`<tr>`;
     sc.cols.forEach(c=>{
-      var v=row[c];
-      if(c==='color') v=`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:50%;background:${v};flex-shrink:0;display:inline-block"></span>${v}</span>`;
+      var raw=row[c];
+      var v=raw;
+      // 外鍵欄位：顯示對應的名稱而非 ID
+      if(colRelMap[c]){
+        var rel=admRelated[colRelMap[c].src]||[];
+        var found=rel.find(r=>r.id===raw);
+        v=found?found[colRelMap[c].lbl]||raw:raw;
+      } else if(c==='color') v=`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:50%;background:${raw};flex-shrink:0;display:inline-block"></span>${raw}</span>`;
       else if(typeof v==='boolean') v=v?'✓':'—';
       else if(c==='prompt_template') v=v?(v.length>40?v.slice(0,38)+'…':v):'—';
       else if(c==='value') v=v?(v.length>40?v.slice(0,38)+'…':v):'—';
       else if(c==='updated_at'&&v) v=new Date(v).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-      html+=`<td title="${String(row[c]||'')}">${v!==undefined&&v!==null&&v!==''?v:'—'}</td>`;
+      html+=`<td title="${String(raw||'')}">${v!==undefined&&v!==null&&v!==''?v:'—'}</td>`;
     });
     if(!sc.readonly){
       html+=`<td><div class="adm-acts">

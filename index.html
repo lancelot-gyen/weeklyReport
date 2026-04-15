@@ -1478,25 +1478,24 @@ async function generateAIReport(){
       data = await response.json();
       content = data.content?.[0]?.text || '生成失敗，請重試。';
     } else {
-      // ── Google Gemini API ──
+      // ── Google Gemini API（v1beta，Flash 系列支援最廣）──
       var rawModel = appSettings.gemini_model || 'gemini-1.5-flash';
-      // 清除多餘的 models/ 前綴，避免重複拼接
-      var cleanModel = rawModel.replace(/^models\//,'');
-      var geminiBase = 'https://generativelanguage.googleapis.com/v1/models/';
-      var geminiUrl = `${geminiBase}${cleanModel}:generateContent?key=${aiKey}`;
-      console.log('[Gemini] 請求 URL:', geminiUrl);
+      // 清除 models/ 前綴，確保不會重複拼接
+      var cleanModel = rawModel.replace(/^models\//,'').trim();
+      var finalUrl = 'https://generativelanguage.googleapis.com/v1beta/models/' + cleanModel + ':generateContent?key=' + aiKey;
+      console.log('Requesting URL:', finalUrl);
 
       var geminiBody = JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] });
-      response = await fetch(geminiUrl, {
+      response = await fetch(finalUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: geminiBody
       });
 
-      // 404 時自動備援至 gemini-1.5-flash-latest
+      // 404 備援：改用 gemini-1.5-flash-001
       if(response.status === 404){
-        var fallbackUrl = `${geminiBase}gemini-1.5-flash-latest:generateContent?key=${aiKey}`;
-        console.warn('[Gemini] 404，備援 URL:', fallbackUrl);
+        var fallbackUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent?key=' + aiKey;
+        console.warn('Requesting URL (fallback):', fallbackUrl);
         response = await fetch(fallbackUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1505,9 +1504,9 @@ async function generateAIReport(){
       }
 
       if(!response.ok){
-        var e2=await response.json().catch(()=>({}));
-        console.error('[Gemini] 錯誤回應 URL:', geminiUrl, e2);
-        throw new Error(e2.error?.message||`HTTP ${response.status}`);
+        var e2 = await response.json().catch(()=>({}));
+        console.error('Gemini error URL:', finalUrl, e2);
+        throw new Error(e2.error?.message || `HTTP ${response.status}`);
       }
       data = await response.json();
       content = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗，請重試。';
@@ -1838,7 +1837,7 @@ async function loadAdmTab(tab){
 
 function renderAdmTab(tab){
   if(tab==='persona_groups'){ renderPGTab(); return; }
-  if(tab==='app_settings'){ renderSettingsTab(); return; }
+  if(tab==='app_settings'){ fixGeminiModelInDB().then(()=>renderSettingsTab()); return; }
   var sc=ADM_SCHEMA[tab];
   var body=document.getElementById('admBody');
   var html='';
@@ -2203,11 +2202,14 @@ function stProvChange(radio){
 
 async function settingsSave(){
   var prov=document.querySelector('input[name=st_provider]:checked')?.value||'gemini';
+  // 清除 gemini_model 的 models/ 前綴，確保存入格式正確
+  var rawGeminiModel=(document.getElementById('st_gemini_model')?.value.trim()||'gemini-1.5-flash');
+  var cleanGeminiModel=rawGeminiModel.replace(/^models\//,'').trim()||'gemini-1.5-flash';
   var rows=[
-    {key:'ai_provider',   value:prov},
-    {key:'gemini_key',    value:document.getElementById('st_gemini_key')?.value.trim()||''},
-    {key:'gemini_model',  value:document.getElementById('st_gemini_model')?.value.trim()||'gemini-1.5-flash'},
-    {key:'anthropic_key', value:document.getElementById('st_anthropic_key')?.value.trim()||''},
+    {key:'ai_provider',    value:prov},
+    {key:'gemini_key',     value:document.getElementById('st_gemini_key')?.value.trim()||''},
+    {key:'gemini_model',   value:cleanGeminiModel},
+    {key:'anthropic_key',  value:document.getElementById('st_anthropic_key')?.value.trim()||''},
     {key:'anthropic_model',value:document.getElementById('st_anthropic_model')?.value.trim()||'claude-sonnet-4-20250514'}
   ];
   var {error}=await sb.from('app_settings').upsert(rows,{onConflict:'key'});
@@ -2215,6 +2217,17 @@ async function settingsSave(){
   rows.forEach(r=>{ appSettings[r.key]=r.value; });
   toast('✓ 系統設定已儲存','#3d7020');
   renderSettingsTab();
+}
+
+// 開啟系統設定時，自動修正 DB 中可能存在的錯誤 model 格式
+async function fixGeminiModelInDB(){
+  var cur=appSettings.gemini_model||'';
+  var clean=cur.replace(/^models\//,'').trim();
+  if(!clean||clean!==cur){
+    var fixVal=clean||'gemini-1.5-flash';
+    await sb.from('app_settings').upsert({key:'gemini_model',value:fixVal},{onConflict:'key'});
+    appSettings.gemini_model=fixVal;
+  }
 }
 
 async function reloadPersonas(){

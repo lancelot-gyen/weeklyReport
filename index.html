@@ -735,7 +735,7 @@ var G = {}, BRANDS = {}, PERSONAS = [], RQ = {
   '採購':[{lbl:'本週採購完成',ph:'下單、到貨、廠商溝通等'},{lbl:'進行中的採購',ph:'詢價、比較、合約談判等，可附進度'},{lbl:'卡關或待處理',ph:'缺貨、漲價、廠商問題等，沒有可留空'},{lbl:'下週計畫',ph:'下週採購重點'}],
   'default':[{lbl:'本週完成',ph:'不用整理格式，想到什麼說什麼就好'},{lbl:'進行中',ph:'進行中的工作，可附進度百分比'},{lbl:'卡關或待處理',ph:'說明卡關原因，沒有可留空'},{lbl:'下週計畫',ph:'下週重點'}]
 };
-var curPId='', ST={}, curPage='', savedData={}, aiPrompts={}, saveTimer=null, currentUser=null;
+var curPId='', ST={}, curPage='', savedData={}, aiPrompts={}, saveTimer=null, currentUser=null, appLoaded=false;
 
 // ══════════════════════════════════════════════
 // AUTH
@@ -758,11 +758,15 @@ async function initAuth() {
     document.getElementById('loginScreen').style.display = 'flex';
   }
   sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === 'SIGNED_IN' && session) {
+    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
       currentUser = session.user;
-      document.getElementById('loginScreen').style.display = 'none';
-      await loadApp();
+      if (!appLoaded) {
+        document.getElementById('loginScreen').style.display = 'none';
+        await loadApp();
+      }
+      // 已載入時只更新 currentUser，不重跑 loadApp（避免分頁切換閃爍）
     } else if (event === 'SIGNED_OUT') {
+      appLoaded = false;
       currentUser = null;
       clearTimeout(idleTimer);
       document.getElementById('loadingApp').style.display = 'none';
@@ -825,6 +829,7 @@ async function loadApp() {
 
     document.getElementById('weekLabel').textContent = getWeekLabel();
     document.getElementById('loadingApp').style.display = 'none';
+    appLoaded = true;
     buildUI();
     startAutoSave();
     startIdleTracking();
@@ -1153,13 +1158,12 @@ function showDone(sid){ var dv=document.getElementById('dv-'+sid),ev=document.ge
 function showEdit(sid){ var dv=document.getElementById('dv-'+sid),ev=document.getElementById('ev-'+sid); if(dv)dv.classList.add('h'); if(ev)ev.classList.add('s'); }
 
 // ── RESTORE DONE STATES FROM SAVED DATA ──
+// 只有使用者主動點「儲存，下一項」才記為 done（__done__ 欄位 = '1'）
 function restoreDoneStates(p) {
-  // 如果某個 section 有任何已儲存的欄位，視為曾填報過（標為 done）
   var order = getOrderFor(p);
   order.forEach(sid => {
-    var prefix = `${p.id}__${sid}__`;
-    var hasSaved = Object.keys(savedData).some(k => k.startsWith(prefix) && savedData[k]);
-    if (hasSaved) {
+    var doneKey = `${p.id}__${sid}____done__`;
+    if (savedData[doneKey] === '1') {
       ST[sid] = 'done';
       var sb = document.querySelector(`[data-sid="${sid}"]`);
       if (sb) {
@@ -1168,7 +1172,6 @@ function restoreDoneStates(p) {
         if (d) d.className = 'sbd d-done';
       }
       showDone(sid);
-      // 更新 done card 摘要文字
       updateDoneCardContent(sid, p);
     }
   });
@@ -1440,7 +1443,7 @@ function collectFields(sid, p){
     Object.keys(savedData).forEach(k => {
       if(k.startsWith(prefix) && savedData[k]){
         var fieldKey = k.replace(prefix,'');
-        if(!fieldKey.startsWith('radio_')) lines.push(savedData[k]);
+        if(!fieldKey.startsWith('radio_') && fieldKey !== '__done__') lines.push(savedData[k]);
       }
     });
   }
@@ -1477,11 +1480,28 @@ function markDone(sid){
   }
   showDone(sid);
 }
-function editSec(sid){ ST[sid]='active'; var sb=document.querySelector('[data-sid="'+sid+'"]'); if(sb){sb.classList.remove('done');var d=sb.querySelector('.sbd');if(d) d.className='sbd '+(sid==='xp'?'d-pj':'d-act');} showEdit(sid); showPage(sid); updateProg(); }
+async function editSec(sid){
+  // 清除 __done__ 標記，讓進度回到未完成
+  await sb.from('weekly_reports').delete()
+    .eq('persona_id', curPId).eq('week_key', WEEK_KEY)
+    .eq('section_id', sid).eq('field_key', '__done__');
+  delete savedData[`${curPId}__${sid}____done__`];
+  ST[sid]='active';
+  var sbEl=document.querySelector('[data-sid="'+sid+'"]');
+  if(sbEl){sbEl.classList.remove('done');var d=sbEl.querySelector('.sbd');if(d) d.className='sbd '+(sid==='xp'?'d-pj':'d-act');}
+  showEdit(sid); showPage(sid); updateProg();
+}
 
 async function goNext(){
   var prev=curPage;
   await saveCurrentPage();
+  // 儲存「主動完成」標記到 DB，重新整理頁面後進度可正確恢復
+  await sb.from('weekly_reports').upsert({
+    persona_id: curPId, week_key: WEEK_KEY,
+    section_id: prev, field_key: '__done__',
+    value: '1', updated_at: new Date().toISOString()
+  }, { onConflict: 'persona_id,week_key,section_id,field_key' });
+  savedData[`${curPId}__${prev}____done__`] = '1';
   markDone(prev); updateProg();
   var order=getOrder(), idx=order.indexOf(prev), next=null;
   for(var i=idx+1;i<order.length;i++){ if(ST[order[i]]!=='done'){next=order[i];break;} }
@@ -1489,8 +1509,8 @@ async function goNext(){
   else {
     var btn=document.getElementById('nxtBtn');
     btn.textContent='送出週報　✓'; btn.classList.add('da');
-    btn.onclick=async function(){ 
-      toast('🎉 週報已送出！報告已路由至各收件匣','#c8691a'); 
+    btn.onclick=async function(){
+      toast('🎉 週報已送出！報告已路由至各收件匣','#c8691a');
     };
     document.getElementById('rnote').textContent='所有項目已完成';
     toast('✓ 已儲存','#3d7020');

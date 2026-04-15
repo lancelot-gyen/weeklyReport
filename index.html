@@ -415,6 +415,90 @@ textarea.sh{min-height:60px;resize:none;}
   .nxb{font-size:13px;padding:11px 14px;}
   .pvb{display:none;}
 }
+
+/* ═══════════════════════════════════════════
+   ADMIN TOP BADGE
+════════════════════════════════════════════ */
+.adm-top-badge{display:none;align-items:center;gap:5px;background:#2a1a0a;border:1px solid #7a3a08;
+  border-radius:7px;padding:5px 11px;cursor:pointer;font-size:11px;color:#e8943a;font-weight:600;
+  letter-spacing:.04em;transition:background .12s;min-height:36px;}
+.adm-top-badge:active{background:#3a2510;}
+
+/* ═══════════════════════════════════════════
+   ADMIN SIDEBAR ITEM
+════════════════════════════════════════════ */
+.sbi-adm{display:flex;align-items:center;gap:8px;padding:10px 10px;border-radius:8px;
+  font-size:13px;color:var(--ac);cursor:pointer;margin-bottom:2px;transition:background .12s;
+  user-select:none;min-height:40px;border:1px solid var(--ab);background:var(--al);}
+.sbi-adm:active{background:#ffeedd;}
+
+/* ═══════════════════════════════════════════
+   ADMIN MODAL
+════════════════════════════════════════════ */
+.adm-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:none;
+  align-items:flex-start;justify-content:center;padding:16px;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.adm-ov.open{display:flex;}
+.adm-wrap{background:#fff;border-radius:16px;width:100%;max-width:980px;
+  max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.4);}
+.adm-hd{background:#1a1a1a;padding:14px 20px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;}
+.adm-hd-t{color:#fff;font-size:15px;font-weight:500;display:flex;align-items:center;gap:10px;}
+.adm-hd-badge{background:var(--ac);color:#fff;font-size:10px;padding:2px 8px;
+  border-radius:4px;font-weight:700;letter-spacing:.05em;}
+.adm-cls{color:#666;cursor:pointer;font-size:22px;line-height:1;padding:4px 10px;
+  border-radius:6px;transition:color .12s;}
+.adm-cls:hover,.adm-cls:active{color:#fff;}
+.adm-tabs{display:flex;gap:4px;padding:10px 14px;border-bottom:1px solid var(--bd);
+  background:var(--sf2);overflow-x:auto;flex-shrink:0;-webkit-overflow-scrolling:touch;}
+.adm-tabs::-webkit-scrollbar{display:none;}
+.adm-tab{font-size:12px;padding:7px 14px;border-radius:7px;cursor:pointer;white-space:nowrap;
+  color:var(--t3);transition:all .12s;border:1px solid transparent;
+  font-family:'Noto Sans TC',sans-serif;min-height:34px;display:flex;align-items:center;}
+.adm-tab.on{background:var(--al);color:var(--ac);border-color:var(--ab);font-weight:500;}
+.adm-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;
+  display:flex;flex-direction:column;gap:14px;}
+.adm-form{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:16px;}
+.adm-form-t{font-size:13px;font-weight:500;color:var(--t);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;}
+.adm-form-t span{font-size:11px;color:var(--t3);font-weight:400;}
+.adm-fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
+.adm-fi{display:flex;flex-direction:column;gap:4px;}
+.adm-fi.full{grid-column:1/-1;}
+.adm-fi label{font-size:11px;color:var(--t2);font-weight:500;}
+.adm-fi input[type=text],.adm-fi input[type=email],.adm-fi input[type=number],
+.adm-fi input[type=color],.adm-fi select,.adm-fi textarea{
+  font-family:'Noto Sans TC',sans-serif;font-size:13px;padding:8px 10px;
+  border:1px solid var(--bdm);border-radius:7px;outline:none;color:var(--t);
+  background:#fff;width:100%;transition:border-color .12s;}
+.adm-fi input:focus,.adm-fi select:focus,.adm-fi textarea:focus{border-color:var(--ac);}
+.adm-fi input[type=color]{padding:4px;height:38px;cursor:pointer;}
+.adm-fi input[type=checkbox]{width:18px;height:18px;accent-color:var(--ac);cursor:pointer;}
+.adm-fi textarea{min-height:100px;resize:vertical;line-height:1.6;}
+.adm-form-foot{display:flex;gap:8px;margin-top:12px;align-items:center;}
+.adm-sub{padding:9px 20px;background:var(--ac);color:#fff;border:none;border-radius:8px;
+  font-size:13px;font-family:'Noto Sans TC',sans-serif;font-weight:500;
+  cursor:pointer;transition:background .12s;min-height:40px;}
+.adm-sub:active{background:#a85415;}
+.adm-cancel{padding:9px 14px;background:transparent;color:var(--t3);border:1px solid var(--bd);
+  border-radius:8px;font-size:13px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;min-height:40px;}
+.adm-cancel:active{background:var(--sf2);}
+.adm-tbl-wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:10px;}
+.adm-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.adm-tbl th{text-align:left;padding:9px 12px;background:var(--sf2);color:var(--t2);
+  font-weight:500;border-bottom:2px solid var(--bd);white-space:nowrap;font-size:12px;}
+.adm-tbl td{padding:9px 12px;border-bottom:1px solid var(--bd);color:var(--t);
+  vertical-align:middle;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.adm-tbl tr:last-child td{border-bottom:none;}
+.adm-tbl tr:hover td{background:#fafaf9;}
+.adm-acts{display:flex;gap:5px;}
+.adm-eb{font-size:11px;padding:5px 10px;border-radius:5px;cursor:pointer;border:1px solid;
+  font-family:'Noto Sans TC',sans-serif;transition:all .12s;white-space:nowrap;min-height:30px;}
+.adm-eb.e{color:var(--pj);border-color:var(--pjb);background:var(--pjl);}
+.adm-eb.d{color:#c03020;border-color:rgba(192,48,32,.2);background:#fdecea;}
+.adm-eb.e:active{background:#c8dcf8;}
+.adm-eb.d:active{background:#f8c8c4;}
 </style>
 </head>
 <body>
@@ -448,6 +532,7 @@ textarea.sh{min-height:60px;resize:none;}
     <div class="wk" id="weekLabel">載入中...</div>
   </div>
   <div class="tbr">
+    <div class="adm-top-badge" id="admBadgeTop" onclick="openAdmin()">⚙ 管理後台</div>
     <div class="upill" id="upill" onclick="toggleOv()">
       <div class="uav" id="topAv">-</div>
       <div><div class="uname" id="topName">載入中</div><div class="urole" id="topRole">-</div></div>
@@ -495,6 +580,30 @@ textarea.sh{min-height:60px;resize:none;}
   <div class="botr">
     <div class="rnt" id="rnote">計算中...</div>
     <button class="nxb" id="nxtBtn">儲存，下一項　→</button>
+  </div>
+</div>
+
+<!-- ── 管理後台 Modal ── -->
+<div class="adm-ov" id="admOv" onclick="admOvClick(event)">
+  <div class="adm-wrap" onclick="event.stopPropagation()">
+    <div class="adm-hd">
+      <div class="adm-hd-t">
+        <span class="adm-hd-badge">ADMIN</span>
+        管理後台
+      </div>
+      <div class="adm-cls" onclick="closeAdmin()">×</div>
+    </div>
+    <div class="adm-tabs" id="admTabs">
+      <div class="adm-tab on" data-tab="groups" onclick="loadAdmTab('groups')">事業群</div>
+      <div class="adm-tab" data-tab="brands" onclick="loadAdmTab('brands')">品牌</div>
+      <div class="adm-tab" data-tab="personas" onclick="loadAdmTab('personas')">填報人</div>
+      <div class="adm-tab" data-tab="persona_groups" onclick="loadAdmTab('persona_groups')">群組對應</div>
+      <div class="adm-tab" data-tab="ai_prompts" onclick="loadAdmTab('ai_prompts')">AI Prompt</div>
+      <div class="adm-tab" data-tab="weekly_reports" onclick="loadAdmTab('weekly_reports')">週報記錄</div>
+    </div>
+    <div class="adm-body" id="admBody">
+      <div style="padding:20px;color:var(--t3);text-align:center">請選擇資料表</div>
+    </div>
   </div>
 </div>
 
@@ -824,10 +933,22 @@ async function switchP(id){ curPId=id; closeOv(); buildUI(); toast('已切換至
 function buildUI(){
   var p = getP();
   if (!p) return;
-  document.getElementById('topAv').textContent = p.init;
+
+  // 優先顯示登入者的真實 Google 姓名；若 email 對應到 persona 才改顯示 persona 名稱
+  var googleName = (currentUser && (currentUser.user_metadata?.full_name || currentUser.user_metadata?.name)) || '';
+  var emailMatchedPersona = currentUser && p && currentUser.email && p.email === currentUser.email;
+  var displayName = emailMatchedPersona ? p.name : (googleName || p.name);
+  var displayInit = emailMatchedPersona ? p.init : (googleName ? googleName.slice(0,1).toUpperCase() : p.init);
+  var displayRole = p.role + (p.xp?' ・ 跨群':'') + ' ・ ' + p.groups.length + ' 個群';
+
+  document.getElementById('topAv').textContent = displayInit;
   document.getElementById('topAv').style.background = p.color;
-  document.getElementById('topName').textContent = p.name;
-  document.getElementById('topRole').textContent = p.role + (p.xp?' ・ 跨群':'') + ' ・ ' + p.groups.length + ' 個群';
+  document.getElementById('topName').textContent = displayName;
+  document.getElementById('topRole').textContent = displayRole;
+
+  // 管理後台 badge：僅管理員可見
+  var admBadge = document.getElementById('admBadgeTop');
+  if(admBadge) admBadge.style.display = isAdmin() ? 'inline-flex' : 'none';
   // 全部從空白開始，由 savedData 或使用者操作決定狀態
   ST = {ss:'empty', sm:'empty', sc:'empty', sv:'empty'};
   p.groups.forEach(g => { ST[g] = 'empty'; });
@@ -868,7 +989,12 @@ function buildSidebar(p){
       <div class="sbr"><span class="sbmg">${gr.mgr.split('/')[0].trim()}</span>
       <span class="sbd ${st==='done'?'d-done':ac?'d-act':'d-empty'}"></span></div></div>`;
   });
-  h += '</div><div class="sbft"><div class="ptr"><div class="pfl" id="pfill" style="width:30%"></div></div><div class="ptxt" id="ptxt">計算中...</div></div>';
+  // 管理後台入口（僅管理員）
+  if(isAdmin()){
+    h += '<div class="sbsc" style="margin-top:4px"><div class="sbi-adm" onclick="openAdmin()">⚙ 管理後台</div></div>';
+  }
+
+  h += '<div class="sbft"><div class="ptr"><div class="pfl" id="pfill" style="width:30%"></div></div><div class="ptxt" id="ptxt">計算中...</div></div>';
   document.getElementById('sidebar').innerHTML = h;
 }
 
@@ -1380,6 +1506,249 @@ function toast(msg,color){
   var t=document.createElement('div'); t.className='toast'; t.style.background=color||'#333'; t.textContent=msg;
   document.body.appendChild(t);
   setTimeout(()=>{ if(t.parentNode) t.parentNode.removeChild(t); },2600);
+}
+
+// ══════════════════════════════════════════════
+// ADMIN
+// ══════════════════════════════════════════════
+const ADMIN_EMAILS = ['lancelot@gyen.com.tw'];
+function isAdmin(){ return !!(currentUser && ADMIN_EMAILS.includes(currentUser.email)); }
+
+var admCurTab = 'groups';
+var admRows = [];
+var admEditIdx = -1;
+var admRelated = {};
+
+// 資料表 schema 定義
+const ADM_SCHEMA = {
+  groups:{
+    label:'事業群', pk:'id', sortBy:'sort_order',
+    cols:['id','name','manager','sort_order'],
+    fields:[
+      {k:'id',l:'ID',t:'text',r:true,hint:'e.g. g1'},
+      {k:'name',l:'名稱',t:'text',r:true},
+      {k:'manager',l:'負責人',t:'text',r:true,hint:'Kyle / 小美'},
+      {k:'sort_order',l:'排序',t:'number',def:'0'}
+    ]
+  },
+  brands:{
+    label:'品牌', pk:'id', sortBy:'sort_order',
+    cols:['id','group_id','name','sort_order'],
+    fields:[
+      {k:'id',l:'ID',t:'text',r:true},
+      {k:'group_id',l:'事業群',t:'select',src:'groups',srcL:'name',r:true},
+      {k:'name',l:'品牌名稱',t:'text',r:true},
+      {k:'sort_order',l:'排序',t:'number',def:'0'}
+    ]
+  },
+  personas:{
+    label:'填報人', pk:'id',
+    cols:['id','name','init','color','role','note','has_cross_group','email'],
+    fields:[
+      {k:'id',l:'ID',t:'text',r:true},
+      {k:'name',l:'姓名',t:'text',r:true},
+      {k:'init',l:'頭像文字',t:'text',r:true,hint:'1-2字'},
+      {k:'color',l:'頭像顏色',t:'color',r:true},
+      {k:'role',l:'職能',t:'text',r:true},
+      {k:'note',l:'備注',t:'text'},
+      {k:'email',l:'Email',t:'email'},
+      {k:'has_cross_group',l:'有跨群進度',t:'checkbox'}
+    ]
+  },
+  persona_groups:{
+    label:'群組對應', pk:['persona_id','group_id'],
+    cols:['persona_id','group_id'],
+    fields:[
+      {k:'persona_id',l:'填報人',t:'select',src:'personas',srcL:'name',r:true},
+      {k:'group_id',l:'事業群',t:'select',src:'groups',srcL:'name',r:true}
+    ]
+  },
+  ai_prompts:{
+    label:'AI Prompt', pk:'id',
+    cols:['id','label'],
+    fields:[
+      {k:'id',l:'ID',t:'text',r:true,hint:'group_report / cross_group_report'},
+      {k:'label',l:'標籤',t:'text',r:true},
+      {k:'prompt_template',l:'Prompt 模板',t:'textarea',r:true,full:true}
+    ]
+  },
+  weekly_reports:{
+    label:'週報記錄', pk:'id', readonly:true,
+    cols:['persona_id','week_key','section_id','field_key','value','updated_at'],
+    fields:[]
+  }
+};
+
+function openAdmin(){
+  if(!isAdmin()){ toast('無管理者權限','#c03020'); return; }
+  document.getElementById('admOv').classList.add('open');
+  loadAdmTab(admCurTab);
+}
+function closeAdmin(){ document.getElementById('admOv').classList.remove('open'); admEditIdx=-1; }
+function admOvClick(e){ if(e.target===document.getElementById('admOv')) closeAdmin(); }
+
+async function loadAdmTab(tab){
+  admCurTab=tab; admEditIdx=-1;
+  document.querySelectorAll('.adm-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
+  var body=document.getElementById('admBody');
+  body.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3)">載入中...</div>';
+
+  var sc=ADM_SCHEMA[tab]; if(!sc) return;
+
+  // 載入 select 來源資料
+  admRelated={};
+  for(var f of sc.fields){
+    if(f.src && !admRelated[f.src]){
+      var {data:rd}=await sb.from(f.src).select('id,name').order('sort_order',{ascending:true}).order('id');
+      admRelated[f.src]=rd||[];
+    }
+  }
+
+  // 載入資料
+  var q=sb.from(tab).select('*');
+  if(sc.sortBy) q=q.order(sc.sortBy,{ascending:true});
+  if(tab==='weekly_reports') q=q.order('updated_at',{ascending:false}).limit(200);
+  var {data,error}=await q;
+  if(error){ body.innerHTML=`<div style="color:#c03020;padding:16px">載入失敗：${error.message}</div>`; return; }
+  admRows=data||[];
+  renderAdmTab(tab);
+}
+
+function renderAdmTab(tab){
+  var sc=ADM_SCHEMA[tab];
+  var body=document.getElementById('admBody');
+  var html='';
+
+  // 新增/編輯 表單
+  if(!sc.readonly){
+    var isEdit=admEditIdx>=0;
+    var row=isEdit?admRows[admEditIdx]:{};
+    html+=`<div class="adm-form">
+      <div class="adm-form-t">${isEdit?'✏ 編輯':'＋ 新增'}${sc.label} <span>${isEdit?'修改後點「儲存」':'填寫後點「新增」'}</span></div>
+      <div class="adm-fgrid">`;
+    sc.fields.forEach(f=>{
+      var val=row[f.k]!==undefined?row[f.k]:(f.def||'');
+      html+=`<div class="adm-fi${f.full?' full':''}">
+        <label>${f.l}${f.r?'<span style="color:var(--ac);margin-left:2px">*</span>':''}</label>`;
+      if(f.t==='select'){
+        var opts=(admRelated[f.src]||[]).map(o=>`<option value="${o.id}"${val===o.id?' selected':''}>${o.id} - ${o[f.srcL]||''}</option>`).join('');
+        html+=`<select id="adf_${f.k}"><option value="">-- 選擇 --</option>${opts}</select>`;
+      } else if(f.t==='textarea'){
+        html+=`<textarea id="adf_${f.k}" placeholder="${f.hint||''}">${escapeHtml(String(val))}</textarea>`;
+      } else if(f.t==='checkbox'){
+        html+=`<input type="checkbox" id="adf_${f.k}"${val?' checked':''}> <label for="adf_${f.k}" style="font-size:13px;color:var(--t2)">${f.l}</label>`;
+      } else {
+        html+=`<input type="${f.t}" id="adf_${f.k}" value="${escapeHtml(String(val))}" placeholder="${f.hint||''}"${isEdit&&f.k===sc.pk?' readonly style="background:#f0f0ee;color:var(--t3);"':''}>`;
+      }
+      html+='</div>';
+    });
+    html+=`</div><div class="adm-form-foot">
+      <button class="adm-sub" onclick="admSubmit('${tab}')">${isEdit?'儲存變更':'新增'}</button>
+      ${isEdit?`<button class="adm-cancel" onclick="admCancelEdit('${tab}')">取消</button>`:''}
+    </div></div>`;
+  }
+
+  // 資料表
+  html+='<div class="adm-tbl-wrap"><table class="adm-tbl"><thead><tr>';
+  sc.cols.forEach(c=>{ html+=`<th>${c}</th>`; });
+  if(!sc.readonly) html+='<th>操作</th>';
+  html+='</tr></thead><tbody>';
+
+  if(admRows.length===0){
+    html+=`<tr><td colspan="${sc.cols.length+(sc.readonly?0:1)}" style="text-align:center;color:var(--t3);padding:24px">尚無資料</td></tr>`;
+  }
+  admRows.forEach((row,idx)=>{
+    html+=`<tr>`;
+    sc.cols.forEach(c=>{
+      var v=row[c];
+      if(c==='color') v=`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:50%;background:${v};flex-shrink:0;display:inline-block"></span>${v}</span>`;
+      else if(typeof v==='boolean') v=v?'✓':'—';
+      else if(c==='prompt_template') v=v?(v.length>40?v.slice(0,38)+'…':v):'—';
+      else if(c==='value') v=v?(v.length>40?v.slice(0,38)+'…':v):'—';
+      else if(c==='updated_at'&&v) v=new Date(v).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      html+=`<td title="${String(row[c]||'')}">${v!==undefined&&v!==null&&v!==''?v:'—'}</td>`;
+    });
+    if(!sc.readonly){
+      html+=`<td><div class="adm-acts">
+        <button class="adm-eb e" onclick="admStartEdit('${tab}',${idx})">編輯</button>
+        <button class="adm-eb d" onclick="admDelete('${tab}',${idx})">刪除</button>
+      </div></td>`;
+    } else {
+      html+=`<td><div class="adm-acts"><button class="adm-eb d" onclick="admDelete('${tab}',${idx})">刪除</button></div></td>`;
+    }
+    html+='</tr>';
+  });
+  html+='</tbody></table></div>';
+  body.innerHTML=html;
+}
+
+function admStartEdit(tab,idx){
+  admEditIdx=idx;
+  renderAdmTab(tab);
+  document.getElementById('admBody').scrollTo({top:0,behavior:'smooth'});
+}
+function admCancelEdit(tab){ admEditIdx=-1; renderAdmTab(tab); }
+
+function admGetFormData(tab){
+  var sc=ADM_SCHEMA[tab];
+  var data={};
+  sc.fields.forEach(f=>{
+    var el=document.getElementById('adf_'+f.k);
+    if(!el) return;
+    if(f.t==='checkbox') data[f.k]=el.checked;
+    else if(f.t==='number') data[f.k]=el.value===''?0:Number(el.value);
+    else data[f.k]=el.value.trim();
+  });
+  return data;
+}
+
+async function admSubmit(tab){
+  var sc=ADM_SCHEMA[tab];
+  var data=admGetFormData(tab);
+  // 必填驗證
+  for(var f of sc.fields){
+    if(f.r && !f.t==='checkbox' && (!data[f.k]&&data[f.k]!==0)){
+      toast('請填寫「'+f.l+'」','#c03020'); return;
+    }
+  }
+  var isEdit=admEditIdx>=0;
+  var row=isEdit?admRows[admEditIdx]:null;
+
+  if(isEdit){
+    // UPDATE
+    var q=sb.from(tab).update(data);
+    if(Array.isArray(sc.pk)){
+      sc.pk.forEach(k=>{ q=q.eq(k,row[k]); });
+    } else {
+      q=q.eq(sc.pk,row[sc.pk]);
+    }
+    var {error}=await q;
+    if(error){ toast('更新失敗：'+error.message,'#c03020'); return; }
+    toast('✓ 已更新','#3d7020');
+  } else {
+    // INSERT
+    var {error}=await sb.from(tab).insert(data);
+    if(error){ toast('新增失敗：'+error.message,'#c03020'); return; }
+    toast('✓ 已新增','#3d7020');
+  }
+  admEditIdx=-1;
+  await loadAdmTab(tab);
+}
+
+async function admDelete(tab,idx){
+  var sc=ADM_SCHEMA[tab];
+  var row=admRows[idx];
+  if(!confirm('確定刪除這筆資料？')) return;
+  var q=sb.from(tab).delete();
+  if(Array.isArray(sc.pk)){
+    sc.pk.forEach(k=>{ q=q.eq(k,row[k]); });
+  } else {
+    q=q.eq(sc.pk,row[sc.pk]);
+  }
+  var {error}=await q;
+  if(error){ toast('刪除失敗：'+error.message,'#c03020'); return; }
+  toast('已刪除','#444');
+  await loadAdmTab(tab);
 }
 
 // ══════════════════════════════════════════════

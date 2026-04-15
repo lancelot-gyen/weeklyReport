@@ -499,6 +499,89 @@ textarea.sh{min-height:60px;resize:none;}
 .adm-eb.d{color:#c03020;border-color:rgba(192,48,32,.2);background:#fdecea;}
 .adm-eb.e:active{background:#c8dcf8;}
 .adm-eb.d:active{background:#f8c8c4;}
+
+/* ═══════════════════════════════════════════
+   HIST 週報查詢 OVERLAY
+════════════════════════════════════════════ */
+.hist-ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:8000;display:none;
+  align-items:flex-start;justify-content:center;padding:16px;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.hist-ov.open{display:flex;}
+.hist-wrap{background:#fff;border-radius:16px;width:100%;max-width:860px;
+  max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.4);}
+.hist-hd{background:#1a1a1a;padding:14px 20px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;}
+.hist-hd-t{color:#fff;font-size:15px;font-weight:500;display:flex;align-items:center;gap:10px;}
+.hist-hd-badge{background:#2858a0;color:#fff;font-size:10px;padding:2px 8px;
+  border-radius:4px;font-weight:700;letter-spacing:.05em;}
+.hist-cls{color:#666;cursor:pointer;font-size:22px;line-height:1;padding:4px 10px;
+  border-radius:6px;transition:color .12s;}
+.hist-cls:hover,.hist-cls:active{color:#fff;}
+.hist-ctrl{display:flex;align-items:center;gap:10px;padding:12px 20px;
+  border-bottom:1px solid var(--bd);background:var(--sf2);flex-shrink:0;flex-wrap:wrap;}
+.hist-wknav{display:flex;align-items:center;gap:6px;}
+.hist-wkbtn{width:34px;height:34px;border:1px solid var(--bdm);border-radius:7px;
+  background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;
+  justify-content:center;transition:background .12s;color:var(--t2);}
+.hist-wkbtn:active{background:var(--sf2);}
+.hist-wkbtn:disabled{opacity:.35;cursor:not-allowed;}
+.hist-wklbl{font-size:13px;font-weight:500;color:var(--t);min-width:175px;text-align:center;}
+.hist-today{font-size:11px;padding:5px 12px;border-radius:7px;background:var(--al);
+  color:var(--ac);border:1px solid var(--ab);cursor:pointer;white-space:nowrap;
+  font-family:'Noto Sans TC',sans-serif;}
+.hist-today:active{background:#ffeedd;}
+.hist-psel{display:flex;gap:7px;flex-wrap:wrap;padding:10px 16px;
+  border-bottom:1px solid var(--bd);background:#fff;flex-shrink:0;overflow-x:auto;}
+.hist-pcard{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;
+  border:1px solid var(--bdm);cursor:pointer;transition:all .12s;background:#fff;white-space:nowrap;}
+.hist-pcard:active,.hist-pcard.on{background:var(--al);border-color:var(--ab);}
+.hist-pav{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;}
+.hist-pname{font-size:12px;font-weight:500;color:var(--t);}
+.hist-prole{font-size:10px;color:var(--t3);}
+.hist-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:18px;display:flex;flex-direction:column;gap:14px;}
+.hist-prog{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;}
+.hist-prog-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.hist-prog-lbl{font-size:13px;font-weight:500;color:var(--t);}
+.hist-prog-pct{font-size:14px;color:var(--ac);font-weight:700;}
+.hist-bar{background:var(--bd);height:6px;border-radius:3px;overflow:hidden;}
+.hist-bar-fill{height:100%;background:var(--ac);border-radius:3px;transition:width .4s;}
+.hist-prog-secs{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;}
+.hist-sdot{font-size:11px;padding:3px 9px;border-radius:10px;}
+.hist-sdot.done{background:#eef7e8;color:#3a7020;}
+.hist-sdot.empty{background:var(--sf2);color:var(--t3);border:1px solid var(--bd);}
+.hist-section{background:#fff;border:1px solid var(--bd);border-radius:12px;overflow:hidden;}
+.hist-sec-hd{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:var(--sf2);border-bottom:1px solid var(--bd);}
+.hist-sec-title{font-size:13px;font-weight:500;color:var(--t);}
+.hist-badge{font-size:11px;padding:3px 10px;border-radius:10px;font-weight:500;}
+.hist-badge.done{background:#eef7e8;color:#3a7020;}
+.hist-badge.empty{background:var(--sf2);color:var(--t3);border:1px solid var(--bd);}
+.hist-sec-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.hist-field{display:flex;flex-direction:column;gap:3px;}
+.hist-flbl{font-size:11px;font-weight:500;color:var(--t3);letter-spacing:.03em;}
+.hist-fval{font-size:13px;color:var(--t2);line-height:1.75;white-space:pre-wrap;word-break:break-word;}
+.hist-radio{display:inline-flex;align-items:center;font-size:13px;
+  padding:4px 11px;border-radius:6px;font-weight:500;}
+.hist-radio.g,.hist-radio.a{background:#eef7e8;color:#3a7020;}
+.hist-radio.y,.hist-radio.b{background:#fef8e8;color:#7a5808;}
+.hist-radio.r,.hist-radio.c{background:#fdecea;color:#8a2e10;}
+.hist-brand{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;
+  padding:11px 13px;display:flex;flex-direction:column;gap:8px;}
+.hist-bname{font-size:11px;font-weight:600;color:var(--ac);letter-spacing:.04em;}
+.hist-empty-sec{font-size:12px;color:var(--t3);font-style:italic;}
+.hist-goto{display:flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--ac);color:#fff;border:none;border-radius:8px;
+  padding:10px 20px;font-size:13px;font-family:'Noto Sans TC',sans-serif;
+  font-weight:500;cursor:pointer;transition:background .15s;align-self:flex-start;}
+.hist-goto:active{background:#a85415;}
+.hist-empty{text-align:center;padding:40px;color:var(--t3);font-size:14px;}
+.sbi-hist{display:flex;align-items:center;gap:8px;padding:10px;border-radius:8px;
+  font-size:13px;color:var(--pj);cursor:pointer;margin-bottom:2px;transition:background .12s;
+  user-select:none;min-height:40px;border:1px solid var(--pjb);background:var(--pjl);}
+.sbi-hist:active{background:#dde9f8;}
 </style>
 </head>
 <body>
@@ -604,6 +687,26 @@ textarea.sh{min-height:60px;resize:none;}
     <div class="adm-body" id="admBody">
       <div style="padding:20px;color:var(--t3);text-align:center">請選擇資料表</div>
     </div>
+  </div>
+</div>
+
+<!-- 週報查詢 Overlay -->
+<div class="hist-ov" id="histOv" onclick="histOvClick(event)">
+  <div class="hist-wrap" onclick="event.stopPropagation()">
+    <div class="hist-hd">
+      <div class="hist-hd-t"><span class="hist-hd-badge">REVIEW</span>週報查詢</div>
+      <div class="hist-cls" onclick="closeHist()">×</div>
+    </div>
+    <div class="hist-ctrl">
+      <div class="hist-wknav">
+        <button class="hist-wkbtn" id="histPrevBtn" onclick="histShiftWeek(-1)">‹</button>
+        <div class="hist-wklbl" id="histWkLbl">—</div>
+        <button class="hist-wkbtn" id="histNextBtn" onclick="histShiftWeek(1)">›</button>
+      </div>
+      <button class="hist-today" onclick="histGoToday()">回本週</button>
+    </div>
+    <div class="hist-psel" id="histPsel" style="display:none"></div>
+    <div class="hist-body" id="histBody"><div class="hist-empty">載入中...</div></div>
   </div>
 </div>
 
@@ -1003,9 +1106,11 @@ function buildSidebar(p){
       <div class="sbr"><span class="sbmg">${gr.mgr.split('/')[0].trim()}</span>
       <span class="sbd ${st==='done'?'d-done':ac?'d-act':'d-empty'}"></span></div></div>`;
   });
+  // 週報查詢（所有登入者）
+  h += '<div class="sbsc" style="margin-top:4px"><div class="sbi-hist" onclick="openHist()">📋 週報查詢</div></div>';
   // 管理後台入口（僅管理員）
   if(isAdmin()){
-    h += '<div class="sbsc" style="margin-top:4px"><div class="sbi-adm" onclick="openAdmin()">⚙ 管理後台</div></div>';
+    h += '<div class="sbsc" style="margin-top:2px"><div class="sbi-adm" onclick="openAdmin()">⚙ 管理後台</div></div>';
   }
 
   h += '<div class="sbft"><div class="ptr"><div class="pfl" id="pfill" style="width:30%"></div></div><div class="ptxt" id="ptxt">計算中...</div></div>';
@@ -1998,6 +2103,238 @@ async function pgSave(){
   admPGEditPersonaId=null;
   await reloadPersonas();
   await loadAdmTab('persona_groups');
+}
+
+// ══════════════════════════════════════════════
+// 週報查詢（HIST）
+// ══════════════════════════════════════════════
+var histState = { weekOffset: 0, personaId: null };
+
+// 權限：可查看的 persona ID 清單
+function getViewablePersonaIds(){
+  if(!currentUser) return [];
+  var myP = PERSONAS.find(p=>p.email&&p.email.toLowerCase()===(currentUser.email||'').toLowerCase());
+  var ids = new Set();
+  if(myP) ids.add(myP.id);
+
+  if(isAdmin()){
+    PERSONAS.forEach(p=>ids.add(p.id));
+    return [...ids];
+  }
+
+  // 事業群負責人：名字出現在 G[gid].mgr 中 → 可看該群所有成員
+  if(myP){
+    Object.keys(G).forEach(gid=>{
+      if((G[gid].mgr||'').includes(myP.name)){
+        PERSONAS.forEach(p=>{
+          if(p.groups&&p.groups.some(g=>String(g)===String(gid))) ids.add(p.id);
+        });
+      }
+    });
+  }
+  return [...ids];
+}
+
+// 可修改（僅本人）
+function canEditHist(pid){
+  if(!currentUser) return false;
+  var myP = PERSONAS.find(p=>p.email&&p.email.toLowerCase()===(currentUser.email||'').toLowerCase());
+  return myP&&myP.id===pid;
+}
+
+// 週次工具
+function getWeekKeyByOffset(offset){
+  var d=new Date(); d.setDate(d.getDate()+offset*7);
+  var start=new Date(d.getFullYear(),0,1);
+  var week=Math.ceil(((d-start)/86400000+start.getDay()+1)/7);
+  return `${d.getFullYear()}-W${String(week).padStart(2,'0')}`;
+}
+function getWeekLabelByOffset(offset){
+  var d=new Date(); d.setDate(d.getDate()+offset*7);
+  var start=new Date(d.getFullYear(),0,1);
+  var week=Math.ceil(((d-start)/86400000+start.getDay()+1)/7);
+  var mon=new Date(d); mon.setDate(d.getDate()-d.getDay()+1);
+  var mm=String(mon.getMonth()+1).padStart(2,'0'), dd=String(mon.getDate()).padStart(2,'0');
+  return `${d.getFullYear()} W${week}・${mon.getFullYear()}.${mm}.${dd}`;
+}
+
+function openHist(){
+  var viewable=getViewablePersonaIds();
+  if(viewable.length===0){ toast('無可查詢的週報','#c03020'); return; }
+  histState.weekOffset=0;
+  var myP=PERSONAS.find(p=>p.email&&p.email.toLowerCase()===(currentUser?.email||'').toLowerCase());
+  histState.personaId=(myP&&viewable.includes(myP.id))?myP.id:viewable[0];
+  document.getElementById('histOv').classList.add('open');
+  renderHistCtrl();
+  loadAndRenderHist();
+}
+function closeHist(){ document.getElementById('histOv').classList.remove('open'); }
+function histOvClick(e){ if(e.target===document.getElementById('histOv')) closeHist(); }
+
+function histShiftWeek(dir){
+  var next=histState.weekOffset+dir;
+  if(next>0) return;
+  histState.weekOffset=next;
+  renderHistCtrl(); loadAndRenderHist();
+}
+function histGoToday(){
+  if(histState.weekOffset===0) return;
+  histState.weekOffset=0;
+  renderHistCtrl(); loadAndRenderHist();
+}
+
+function renderHistCtrl(){
+  document.getElementById('histWkLbl').textContent=getWeekLabelByOffset(histState.weekOffset);
+  document.getElementById('histNextBtn').disabled=(histState.weekOffset>=0);
+
+  var viewable=getViewablePersonaIds();
+  var psel=document.getElementById('histPsel');
+  if(viewable.length<=1){ psel.style.display='none'; return; }
+  psel.style.display='flex';
+  psel.innerHTML=viewable.map(pid=>{
+    var p=PERSONAS.find(x=>x.id===pid); if(!p) return '';
+    var on=pid===histState.personaId;
+    return `<div class="hist-pcard${on?' on':''}" onclick="histSelectP('${pid}')">
+      <div class="hist-pav" style="background:${p.color}">${p.init}</div>
+      <div><div class="hist-pname">${p.name}</div><div class="hist-prole">${p.role}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function histSelectP(pid){
+  histState.personaId=pid;
+  renderHistCtrl(); loadAndRenderHist();
+}
+
+async function loadAndRenderHist(){
+  var body=document.getElementById('histBody');
+  body.innerHTML='<div class="hist-empty">載入中...</div>';
+  var weekKey=getWeekKeyByOffset(histState.weekOffset);
+  var pid=histState.personaId;
+  if(!pid){ body.innerHTML='<div class="hist-empty">請選擇填報人</div>'; return; }
+
+  var {data,error}=await sb.from('weekly_reports').select('*')
+    .eq('week_key',weekKey).eq('persona_id',pid);
+  if(error){ body.innerHTML=`<div class="hist-empty">載入失敗：${error.message}</div>`; return; }
+
+  var hd={};
+  (data||[]).forEach(r=>{ hd[`${r.section_id}__${r.field_key}`]=r.value; });
+  renderHistReport(pid,weekKey,hd);
+}
+
+function renderHistReport(pid,weekKey,hd){
+  var p=PERSONAS.find(x=>x.id===pid); if(!p) return;
+  var body=document.getElementById('histBody');
+  var stMap={g:'順暢推進',y:'有些卡關',r:'壓力很大'};
+  var mpMap={a:'正常，游刃有餘',b:'滿載，但還能應對',c:'超載，有些事做不完了'};
+  var secNames={ss:'本週狀態',sm:'人力狀態',sc:'跨群議題',sv:'本週一句話',xp:'跨群進度'};
+
+  var order=getOrderFor(p);
+  var doneCount=order.filter(sid=>hd[`${sid}____done__`]==='1').length;
+  var pct=order.length>0?Math.round(doneCount/order.length*100):0;
+
+  // ── 進度摘要 ──
+  var html=`<div class="hist-prog">
+    <div class="hist-prog-top">
+      <div class="hist-prog-lbl">${p.name}・${p.role}</div>
+      <div class="hist-prog-pct">${doneCount}/${order.length} 完成・${pct}%</div>
+    </div>
+    <div class="hist-bar"><div class="hist-bar-fill" style="width:${pct}%"></div></div>
+    <div class="hist-prog-secs">`;
+  order.forEach(sid=>{
+    var done=hd[`${sid}____done__`]==='1';
+    var nm=secNames[sid]||(G[sid]?G[sid].name:sid);
+    html+=`<span class="hist-sdot ${done?'done':'empty'}">${done?'✓':'-'} ${nm}</span>`;
+  });
+  html+='</div></div>';
+
+  // ── 本週整體狀態 ──
+  html+=histSec('本週整體狀態','ss',hd,()=>{
+    var r='';
+    var st=hd['ss__radio_st'];
+    if(st) r+=histF('整體感覺',`<span class="hist-radio ${st}">${stMap[st]||st}</span>`);
+    var note=hd['ss__note'];
+    if(note) r+=histF('補充說明',escapeHtml(note));
+    return r;
+  });
+
+  // ── 人力狀態 ──
+  html+=histSec('人力狀態','sm',hd,()=>{
+    var r='';
+    var mp=hd['sm__radio_mp'];
+    if(mp) r+=histF('本週工作量',`<span class="hist-radio ${mp}">${mpMap[mp]||mp}</span>`);
+    var prs=hd['sm__pressure']; if(prs) r+=histF('主要壓力來源',escapeHtml(prs));
+    var cfl=hd['sm__conflict']; if(cfl) r+=histF('跨群資源衝突',escapeHtml(cfl));
+    return r;
+  });
+
+  // ── 跨群議題 ──
+  html+=histSec('跨群議題','sc',hd,()=>{
+    var v=hd['sc__cross_issue']; return v?histF('議題說明',escapeHtml(v)):'';
+  });
+
+  // ── 本週一句話 ──
+  html+=histSec('本週一句話','sv',hd,()=>{
+    var v=hd['sv__voice']; return v?histF('一句話',escapeHtml(v)):'';
+  });
+
+  // ── 跨群進度 ──
+  if(p.xp){
+    var xpL=['本週跨群工作完成','進行中的跨群工作','卡關或待處理','下週跨群計畫','需要總經理協調','公司層級決策'];
+    var xpK=['xp_q1','xp_q2','xp_q3','xp_q4','xp_esc1','xp_esc2'];
+    html+=histSec('跨群工作進度','xp',hd,()=>{
+      var r='';
+      xpK.forEach((k,i)=>{ var v=hd[`xp__${k}`]; if(v) r+=histF(xpL[i],escapeHtml(v)); });
+      return r;
+    });
+  }
+
+  // ── 各事業群 ──
+  p.groups.forEach(gid=>{
+    var g=G[gid]; if(!g) return;
+    html+=histSec(g.name,gid,hd,()=>{
+      var r='';
+      var qs=getQs(p.role);
+      (g.brands||[]).forEach(brand=>{
+        var bLines='';
+        qs.forEach((q,qi)=>{ var v=hd[`${gid}__${gid}_${brand}_q${qi}`]; if(v) bLines+=histF(q.lbl,escapeHtml(v)); });
+        if(bLines) r+=`<div class="hist-brand"><div class="hist-bname">${brand}</div>${bLines}</div>`;
+      });
+      var e1=hd[`${gid}__${gid}_esc1`]; if(e1) r+=histF('⚠ 需群負責人協調',escapeHtml(e1));
+      var e2=hd[`${gid}__${gid}_esc2`]; if(e2) r+=histF('🔴 需公司層級決策',escapeHtml(e2));
+      return r;
+    });
+  });
+
+  body.innerHTML=html;
+
+  // 若是本人且查詢本週，顯示前往填報按鈕
+  if(canEditHist(pid)&&histState.weekOffset===0){
+    var btn=document.createElement('button');
+    btn.className='hist-goto'; btn.textContent='✏ 前往填報本週週報';
+    btn.onclick=closeHist;
+    body.appendChild(btn);
+  }
+}
+
+function histSec(title,sid,hd,contentFn){
+  var done=hd[`${sid}____done__`]==='1';
+  var content=contentFn();
+  if(!content) content='<div class="hist-empty-sec">（本週未填寫）</div>';
+  return `<div class="hist-section">
+    <div class="hist-sec-hd">
+      <div class="hist-sec-title">${title}</div>
+      <span class="hist-badge ${done?'done':'empty'}">${done?'✓ 已完成':'— 未完成'}</span>
+    </div>
+    <div class="hist-sec-body">${content}</div>
+  </div>`;
+}
+
+function histF(label,valHtml){
+  return `<div class="hist-field">
+    <div class="hist-flbl">${label}</div>
+    <div class="hist-fval">${valHtml}</div>
+  </div>`;
 }
 
 // ══════════════════════════════════════════════

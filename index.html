@@ -1964,6 +1964,22 @@ async function pgClearAll(pId,pName){
   await loadAdmTab('persona_groups');
 }
 
+async function reloadPersonas(){
+  var {data:personas}=await sb.from('personas').select('*');
+  var {data:pgLinks}=await sb.from('persona_groups').select('*');
+  PERSONAS=(personas||[]).map(p=>({
+    ...p,
+    xp:p.has_cross_group,
+    groups:(pgLinks||[]).filter(l=>l.persona_id===p.id).map(l=>l.group_id)
+  }));
+  // Re-match curPId to logged-in user
+  if(currentUser&&currentUser.email){
+    var matched=PERSONAS.find(p=>p.email===currentUser.email);
+    if(matched) curPId=matched.id;
+  }
+  buildUI();
+}
+
 async function pgSave(){
   var pId=admPGEditPersonaId||document.getElementById('pg_persona')?.value;
   if(!pId){ toast('請選擇填報人','#c03020'); return; }
@@ -1978,6 +1994,7 @@ async function pgSave(){
   }
   toast('✓ 群組對應已儲存','#3d7020');
   admPGEditPersonaId=null;
+  await reloadPersonas();
   await loadAdmTab('persona_groups');
 }
 

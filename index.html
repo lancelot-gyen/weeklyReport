@@ -1471,13 +1471,13 @@ async function loadCachedAIReport(sid){
   var body = document.getElementById('aiBody');
   body.innerHTML = '<div class="ai-loading"><div class="ai-dots"><span></span><span></span><span></span></div>查詢歷史記錄...</div>';
   
-  const { data } = await sb.from('ai_reports')
+  var q = sb.from('ai_reports')
     .select('*')
     .eq('persona_id', curPId)
-    .eq('week_key', WEEK_KEY)
-    .eq('group_id', sid === 'xp' ? null : sid)
-    .order('generated_at', { ascending: false })
-    .limit(1);
+    .eq('week_key', WEEK_KEY);
+  if(sid === 'xp') q = q.is('group_id', null);
+  else q = q.eq('group_id', sid);
+  const { data } = await q.order('generated_at', { ascending: false }).limit(1);
 
   if(data && data.length > 0){
     renderAIResult(data[0].content, data[0].generated_at);

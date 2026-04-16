@@ -609,6 +609,34 @@ textarea.sh{min-height:60px;resize:none;}
 .sb-ai-dot:hover{background:var(--ab);}
 /* submit wrap 需要 flex column 讓 aib 可以 flex:1 捲動 */
 .submit-wrap{display:flex;flex-direction:column;}
+/* Sidebar AI 週報獨立區塊 */
+.sbi-air{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:7px;
+  font-size:12px;color:var(--t2);cursor:pointer;transition:background .12s;min-height:36px;}
+.sbi-air:hover,.sbi-air:active{background:var(--al);}
+.sbi-air-icon{font-size:11px;color:var(--ac);flex-shrink:0;font-weight:700;}
+.sbi-air-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sbi-air-time{font-size:10px;color:var(--t3);flex-shrink:0;}
+/* AI 發送選擇 UI */
+.ai-send-preview{background:#fff;border:1px solid var(--bd);border-radius:10px;
+  padding:12px 13px;max-height:160px;overflow-y:auto;margin-bottom:12px;}
+.ai-send-preview .aitx{font-size:12px;}
+.ai-send-lbl{font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.06em;
+  text-transform:uppercase;margin-bottom:8px;}
+.ai-send-opts{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.ai-send-opt{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  border:1px solid var(--bdm);border-radius:8px;cursor:pointer;font-size:13px;color:var(--t);
+  transition:all .12s;}
+.ai-send-opt.on{background:var(--al);border-color:var(--ab);}
+.ai-send-opt input{accent-color:var(--ac);width:15px;height:15px;cursor:pointer;}
+.ai-send-btns{display:flex;gap:8px;}
+.ai-send-all{background:var(--ac);color:#fff;border:none;border-radius:8px;
+  padding:10px 0;font-size:13px;font-family:'Noto Sans TC',sans-serif;
+  font-weight:500;cursor:pointer;flex:1;transition:background .15s;}
+.ai-send-all:active{background:#a85415;}
+.ai-send-ok{background:var(--sf);border:1px solid var(--bdm);border-radius:8px;
+  padding:10px 16px;font-size:13px;font-family:'Noto Sans TC',sans-serif;
+  color:var(--t2);cursor:pointer;transition:background .12s;}
+.ai-send-ok:active{background:var(--sf2);}
 </style>
 </head>
 <body>
@@ -1162,6 +1190,8 @@ function buildSidebar(p){
       <div class="sbr"><span class="sbmg">${gr.mgr.split('/')[0].trim()}</span>
       <span class="sbd ${st==='done'?'d-done':ac?'d-act':'d-empty'}"></span></div></div>`;
   });
+  // AI 週報獨立區塊（動態填入，loadAIReportCache 後呼叫 updateSidebarAISection）
+  h += '<div id="sbAISection"></div>';
   // 週報查詢（所有登入者）
   h += '<div class="sbsc" style="margin-top:4px"><div class="sbi-hist" onclick="openHist()">📋 週報查詢</div></div>';
   // 管理後台入口（僅管理員）
@@ -1560,19 +1590,9 @@ async function generateAIReport(){
       content = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗，請重試。';
     }
 
-    // 儲存至 ai_reports
-    await sb.from('ai_reports').insert({
-      persona_id: curPId,
-      week_key: WEEK_KEY,
-      target: isXP ? 'Jerry' : (gr ? gr.mgr : ''),
-      group_id: isXP ? null : currentAISection,
-      content: content,
-      generated_at: new Date().toISOString()
-    });
-
-    renderAIResult(content, new Date().toISOString());
-    toast('✓ AI 週報已生成', '#3d7020');
-    loadAIReportCache().then(()=>updateSidebarAIBadges());
+    // 生成成功 → 顯示發送群組選擇 UI（不直接存 DB）
+    showAISendUI(content, isXP, p, gr);
+    toast('✓ AI 週報已生成，請選擇發送對象', '#3d7020');
   } catch(e) {
     console.error(e);
     bodyEl.innerHTML = `<div class="aibl"><div class="aibt" style="color:#c03020">生成失敗</div><div class="aitx">${escapeHtml(e.message||'未知錯誤，請確認 API Key 並重試。')}</div></div>`;
@@ -1580,6 +1600,82 @@ async function generateAIReport(){
   }
   btn.disabled = false;
   btn.textContent = isXP ? '✦ 重新生成跨群週報' : '✦ 重新生成週報';
+}
+
+// 生成成功後顯示發送對象選擇 UI
+function showAISendUI(content, isXP, p, gr){
+  var bodyEl=document.getElementById('aiBody');
+  var preview=`<div class="ai-send-preview"><div class="aitx">${escapeHtml(content)}</div></div>`;
+
+  if(isXP){
+    // 跨群：只有一個目的地，直接顯示確認
+    bodyEl.innerHTML=preview+`
+      <div class="ai-send-lbl">發送對象</div>
+      <div class="ai-send-opts">
+        <label class="ai-send-opt on">
+          <input type="checkbox" checked disabled> 總經理（Jerry）跨群週報
+        </label>
+      </div>
+      <div class="ai-send-btns">
+        <button class="ai-send-all" onclick="confirmAISend(aiSendContent,true,getP(),null,null)">確認發送</button>
+      </div>`;
+    window.aiSendContent=content;
+  } else {
+    // 群組報告：可選擇多群或全部發送
+    var opts='';
+    p.groups.forEach(g=>{
+      var gr2=G[g]; if(!gr2) return;
+      var checked=g===currentAISection;
+      opts+=`<label class="ai-send-opt${checked?' on':''}" onclick="this.classList.toggle('on');this.querySelector('input').checked=!this.querySelector('input').checked">
+        <input type="checkbox" name="ai_send_g" value="${g}"${checked?' checked':''}> ${gr2.name}（${gr2.mgr.split('/')[0].trim()}）
+      </label>`;
+    });
+    bodyEl.innerHTML=preview+`
+      <div class="ai-send-lbl">選擇發送群組</div>
+      <div class="ai-send-opts" id="aiSendOpts">${opts}</div>
+      <div class="ai-send-btns">
+        <button class="ai-send-all" onclick="aiSendAll()">全部發送</button>
+        <button class="ai-send-ok" onclick="aiSendSelected()">發送選取</button>
+      </div>`;
+    window.aiSendContent=content;
+  }
+}
+
+function aiSendAll(){
+  var p=getP(); if(!p) return;
+  document.querySelectorAll('#aiSendOpts input[name=ai_send_g]').forEach(cb=>{ cb.checked=true; cb.closest('.ai-send-opt').classList.add('on'); });
+  aiSendSelected();
+}
+
+async function aiSendSelected(){
+  var p=getP(); if(!p) return;
+  var selected=[...document.querySelectorAll('#aiSendOpts input[name=ai_send_g]:checked')].map(cb=>cb.value);
+  if(selected.length===0){ toast('請至少選擇一個群組','#c03020'); return; }
+  await confirmAISend(window.aiSendContent, false, p, selected);
+}
+
+async function confirmAISend(content, isXP, p, groupIds){
+  var bodyEl=document.getElementById('aiBody');
+  bodyEl.innerHTML='<div class="ai-loading"><div class="ai-dots"><span></span><span></span><span></span></div>儲存中...</div>';
+  var now=new Date().toISOString();
+  try{
+    if(isXP){
+      await sb.from('ai_reports').insert({persona_id:curPId,week_key:WEEK_KEY,group_id:null,target:'Jerry',content:content,generated_at:now});
+    } else {
+      var rows=(groupIds||[]).map(g=>({
+        persona_id:curPId, week_key:WEEK_KEY, group_id:g,
+        target: G[g]?G[g].mgr:'', content:content, generated_at:now
+      }));
+      if(rows.length>0) await sb.from('ai_reports').insert(rows);
+    }
+    renderAIResult(content, now);
+    toast('✓ AI 週報已發送','#3d7020');
+    await loadAIReportCache();
+    updateSidebarAIBadges();
+  } catch(e){
+    bodyEl.innerHTML=`<div class="aibl"><div class="aibt" style="color:#c03020">儲存失敗</div><div class="aitx">${escapeHtml(e.message)}</div></div>`;
+    toast('儲存失敗：'+e.message,'#c03020');
+  }
 }
 
 function collectFields(sid, p){
@@ -1801,6 +1897,7 @@ const ADM_SCHEMA = {
       {k:'role',l:'職能',t:'role',r:true},
       {k:'note',l:'備注（自動產生）',t:'text'},
       {k:'email',l:'Email',t:'email'},
+      {k:'supervisor_id',l:'部門主管（選填）',t:'select',src:'personas',srcL:'name'},
       {k:'has_cross_group',l:'有跨群進度填報',t:'checkbox'},
       {k:'is_admin',l:'管理者權限',t:'checkbox'}
     ]
@@ -2001,6 +2098,7 @@ function admGetFormData(tab){
     if(!el) return;
     if(f.t==='checkbox') data[f.k]=el.checked;
     else if(f.t==='number') data[f.k]=el.value===''?0:Number(el.value);
+    else if(f.t==='select'&&!f.r) data[f.k]=el.value.trim()||null; // 非必填 select → null 而非空字串
     else data[f.k]=el.value.trim();
   });
   return data;
@@ -2569,6 +2667,8 @@ function updateSidebarAIBadges(){
   var sections=[];
   if(p.xp) sections.push('xp');
   p.groups.forEach(g=>sections.push(g));
+
+  // 更新各填報項目旁的 +AI 小標籤
   sections.forEach(sid=>{
     var sbEl=document.querySelector(`[data-sid="${sid}"]`); if(!sbEl) return;
     var existing=sbEl.querySelector('.sb-ai-dot');
@@ -2576,7 +2676,6 @@ function updateSidebarAIBadges(){
       if(!existing){
         var badge=document.createElement('span');
         badge.className='sb-ai-dot'; badge.textContent='✦ AI';
-        // 點擊 badge 直接開啟該群 AI 報告
         badge.onclick=function(e){ e.stopPropagation(); openAIFor(sid); };
         var dot=sbEl.querySelector('.sbd,.sbr');
         if(dot) sbEl.insertBefore(badge,dot); else sbEl.appendChild(badge);
@@ -2585,6 +2684,34 @@ function updateSidebarAIBadges(){
       if(existing) existing.remove();
     }
   });
+
+  // 更新側欄 AI 週報獨立區塊
+  updateSidebarAISection();
+}
+
+function updateSidebarAISection(){
+  var el=document.getElementById('sbAISection'); if(!el) return;
+  var p=getP(); if(!p) return;
+  var sections=[];
+  if(p.xp) sections.push({sid:'xp', label:'跨群進度週報'});
+  p.groups.forEach(g=>{ if(G[g]) sections.push({sid:g, label:G[g].name+' 週報'}); });
+
+  var hasAny=sections.some(s=>aiReportCache[s.sid]);
+  if(!hasAny){ el.innerHTML=''; return; }
+
+  var h='<div class="sbsc" style="margin-top:4px"><div class="sblb" style="color:var(--ac)">✦ AI 週報</div>';
+  sections.forEach(s=>{
+    var ar=aiReportCache[s.sid]; if(!ar) return;
+    var dt=new Date(ar.generated_at);
+    var timeStr=`${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    h+=`<div class="sbi-air" onclick="openAIFor('${s.sid}')">
+      <span class="sbi-air-icon">✦</span>
+      <span class="sbi-air-name">${s.label}</span>
+      <span class="sbi-air-time">${timeStr}</span>
+    </div>`;
+  });
+  h+='</div>';
+  el.innerHTML=h;
 }
 
 // 導覽至指定群頁面並開啟 AI 面板顯示該群報告

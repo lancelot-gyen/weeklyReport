@@ -1670,8 +1670,8 @@ function showAISendUI(content, isXP, p, gr){
     p.groups.forEach(g=>{
       var gr2=G[g]; if(!gr2) return;
       var checked=g===currentAISection;
-      opts+=`<label class="ai-send-opt${checked?' on':''}" onclick="this.classList.toggle('on');this.querySelector('input').checked=!this.querySelector('input').checked">
-        <input type="checkbox" name="ai_send_g" value="${g}"${checked?' checked':''}> ${gr2.name}（${gr2.mgr.split('/')[0].trim()}）
+      opts+=`<label class="ai-send-opt${checked?' on':''}">
+        <input type="checkbox" name="ai_send_g" value="${g}"${checked?' checked':''} onchange="this.closest('.ai-send-opt').classList.toggle('on',this.checked)"> ${gr2.name}（${gr2.mgr.split('/')[0].trim()}）
       </label>`;
     });
     bodyEl.innerHTML=preview+`

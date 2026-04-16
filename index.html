@@ -779,7 +779,7 @@ textarea.sh{min-height:60px;resize:none;}
     <div class="ai-section-tabs" id="submitTabs"></div>
     <div class="aib" id="submitBody"></div>
     <div class="aifo" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-      <span>確認 AI 週報內容後送出，報告將路由至各收件匣。</span>
+      <span style="font-size:12px;color:var(--t3)">AI 週報發送後，點擊「確認送出」完成本週填報。</span>
       <div style="display:flex;gap:8px;flex-shrink:0">
         <button class="submit-cancel" onclick="closeSubmitPreview()">取消</button>
         <button class="submit-confirm" id="submitConfirmBtn" onclick="confirmSubmit()">確認送出　✓</button>
@@ -1073,6 +1073,44 @@ async function saveCurrentPage() {
   const { error } = await sb.from('weekly_reports').upsert(upserts, { onConflict: 'persona_id,week_key,section_id,field_key' });
   if (error) { el.textContent = '⚠ 儲存失敗'; el.classList.remove('saving'); }
   else { el.textContent = '✓ 草稿已儲存'; el.classList.remove('saving'); }
+}
+
+// 儲存指定頁面（sid）的 DOM 資料到 DB + savedData（不依賴 curPage）
+async function savePageById(sid) {
+  if (!curPId || !sid) return;
+  const page = document.getElementById('p-' + sid);
+  if (!page) return;
+  const upserts = [];
+
+  page.querySelectorAll('textarea').forEach((ta, i) => {
+    const fieldKey = ta.dataset.fkey || ('field_' + i);
+    upserts.push({
+      persona_id: curPId,
+      week_key: WEEK_KEY,
+      section_id: sid,
+      field_key: fieldKey,
+      value: ta.value,
+      updated_at: new Date().toISOString()
+    });
+    savedData[`${curPId}__${sid}__${fieldKey}`] = ta.value;
+  });
+
+  page.querySelectorAll('input[type=radio]').forEach(r => {
+    if (r.checked) {
+      upserts.push({
+        persona_id: curPId,
+        week_key: WEEK_KEY,
+        section_id: sid,
+        field_key: 'radio_' + r.name,
+        value: r.value,
+        updated_at: new Date().toISOString()
+      });
+      savedData[`${curPId}__${sid}__radio_${r.name}`] = r.value;
+    }
+  });
+
+  if (upserts.length === 0) return;
+  await sb.from('weekly_reports').upsert(upserts, { onConflict: 'persona_id,week_key,section_id,field_key' });
 }
 
 function startAutoSave() {
@@ -1515,7 +1553,13 @@ async function generateAIReport(){
     return;
   }
 
+  // 儲存所有與本次 AI 報告相關的頁面，確保 savedData 是最新值
+  // collectFields 會用到：ss（狀態）、sm（工作量）、以及 currentAISection 本身
+  var sectionsToSave = ['ss', 'sm', currentAISection];
+  await Promise.all(sectionsToSave.map(s => savePageById(s)));
+  // 也順帶儲存目前可見頁面（避免漏掉）
   await saveCurrentPage();
+
   var btn = document.getElementById('aiGenBtn');
   btn.disabled = true; btn.textContent = '生成中...';
   var bodyEl = document.getElementById('aiBody');
@@ -2757,15 +2801,18 @@ function submitSetTab(sid){
   var ar=aiReportCache[sid];
   if(ar){
     var dt=new Date(ar.generated_at).toLocaleString('zh-TW');
-    body.innerHTML=`<div style="font-size:11px;color:var(--t3);padding:0 2px 8px">
-      上次生成：${dt}&ensp;<span class="ai-copy" onclick="submitCopyAI()">複製</span></div>
-      <div class="aibl result"><div class="aitx" id="submitAiText">${escapeHtml(ar.content)}</div></div>`;
+    body.innerHTML=`<div style="font-size:11px;color:var(--t3);padding:0 2px 8px;display:flex;align-items:center;justify-content:space-between">
+      <span>上次生成：${dt}&ensp;<span class="ai-copy" onclick="submitCopyAI()">複製</span></span>
+      <span class="ai-copy" onclick="submitGenAI('${sid}')">重新生成</span>
+    </div>
+    <div class="aibl result"><div class="aitx" id="submitAiText">${escapeHtml(ar.content)}</div></div>`;
   } else {
     var gr=G[sid];
     var label=isXP?'跨群進度':(gr?gr.name:sid);
-    body.innerHTML=`<div class="aibl">
-      <div class="aibt${isXP?' pj':''}">尚未生成 AI 週報</div>
-      <div class="aitx">「${label}」本週尚未產生 AI 週報。<br>請填寫完成後，至填報頁面點擊「生成 AI 週報」。</div>
+    body.innerHTML=`<div class="aibl" style="text-align:center;padding:28px 16px">
+      <div class="aibt${isXP?' pj':''}">✦ ${label}</div>
+      <div class="aitx" style="margin-bottom:18px">尚未生成本週 AI 週報，點擊下方按鈕，AI 將依據本週填報內容自動整理。</div>
+      <button onclick="submitGenAI('${sid}')" style="background:var(--ac);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:.03em">✦ 生成 AI 週報</button>
     </div>`;
   }
 }
@@ -2773,6 +2820,138 @@ function submitSetTab(sid){
 function submitCopyAI(){
   var el=document.getElementById('submitAiText');
   if(el) navigator.clipboard.writeText(el.textContent).then(()=>toast('已複製到剪貼簿','#3d7020'));
+}
+
+// 在送出預覽 Modal 內生成 AI 週報
+async function submitGenAI(sid){
+  var p=getP(); if(!p) return;
+  var isXP=sid==='xp';
+  var provider=appSettings.ai_provider||'gemini';
+  var aiKey=provider==='anthropic'?(appSettings.anthropic_key||''):(appSettings.gemini_key||'');
+  if(!aiKey){ toast('請至管理後台 > 系統設定填入 API Key','#c03020'); return; }
+
+  var body=document.getElementById('submitBody');
+  body.innerHTML='<div class="ai-loading"><div class="ai-dots"><span></span><span></span><span></span></div>AI 正在整理週報...</div>';
+
+  // 先存所有相關頁面，確保 collectFields 讀到最新資料
+  var sectionsToSave=['ss','sm',sid];
+  await Promise.all(sectionsToSave.map(s=>savePageById(s)));
+
+  try{
+    var fields=collectFields(sid,p);
+    var gr=G[sid];
+    var promptTemplate=isXP?(aiPrompts['cross_group_report']||FALLBACK_PROMPT_XP):(aiPrompts['group_report']||FALLBACK_PROMPT_GROUP);
+    var weekLabel=document.getElementById('weekLabel').textContent;
+    var promptText=promptTemplate
+      .replace(/\{\{persona_name\}\}/g,p.name)
+      .replace(/\{\{role\}\}/g,p.role)
+      .replace(/\{\{week\}\}/g,weekLabel)
+      .replace(/\{\{group_name\}\}/g,gr?gr.name:'跨群')
+      .replace(/\{\{manager\}\}/g,gr?gr.mgr:'Jerry')
+      .replace(/\{\{fields\}\}/g,fields);
+
+    var response,data,content;
+    if(provider==='anthropic'){
+      var claudeModel=appSettings.anthropic_model||'claude-sonnet-4-20250514';
+      response=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':aiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:claudeModel,max_tokens:1500,messages:[{role:'user',content:promptText}]})
+      });
+      if(!response.ok){var e1=await response.json().catch(()=>({}));throw new Error(e1.error?.message||`HTTP ${response.status}`);}
+      data=await response.json();
+      content=data.content?.[0]?.text||'生成失敗，請重試。';
+    } else {
+      var rawModel=appSettings.gemini_model||'gemini-2.0-flash-lite';
+      var cleanModel=rawModel.replace(/^models\//,'').trim();
+      var finalUrl='https://generativelanguage.googleapis.com/v1beta/models/'+cleanModel+':generateContent?key='+aiKey;
+      response=await fetch(finalUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:promptText}]}]})});
+      if(response.status===404){ toast('模型 ID 無效或已停用，請至後台更新模型名稱。','#c03020'); throw new Error('模型 ID 無效'); }
+      if(!response.ok){var e2=await response.json().catch(()=>({}));throw new Error(e2.error?.message||`HTTP ${response.status}`);}
+      data=await response.json();
+      content=data.candidates?.[0]?.content?.parts?.[0]?.text||'生成失敗，請重試。';
+    }
+
+    submitShowSendUI(content,isXP,p,sid);
+    toast('✓ AI 週報已生成，請選擇發送對象','#3d7020');
+  } catch(e){
+    body.innerHTML=`<div class="aibl"><div class="aibt" style="color:#c03020">生成失敗</div>
+      <div class="aitx">${escapeHtml(e.message||'未知錯誤，請確認 API Key 並重試。')}</div>
+      <button onclick="submitGenAI('${sid}')" style="margin-top:14px;background:var(--ac);color:#fff;border:none;border-radius:10px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer">重試</button></div>`;
+    toast('生成失敗：'+(e.message||'請重試'),'#c03020');
+  }
+}
+
+// 顯示發送對象選擇（送出 Modal 內）
+function submitShowSendUI(content,isXP,p,sourceSid){
+  var body=document.getElementById('submitBody');
+  var preview=`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;max-height:200px;overflow-y:auto;margin-bottom:12px"><div class="aitx" style="font-size:12.5px">${escapeHtml(content)}</div></div>`;
+
+  var btns=`<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+    <button onclick="submitSetTab('${sourceSid}')" style="background:var(--bg2);color:var(--t2);border:1px solid var(--bd);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer">取消</button>
+    <button onclick="doSubmitSendAI('${isXP}')" style="background:var(--ac);color:#fff;border:none;border-radius:8px;padding:7px 18px;font-size:13px;font-weight:600;cursor:pointer">發送 AI 週報　✓</button>
+  </div>`;
+
+  if(isXP){
+    body.innerHTML=preview+`
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;font-size:13px">
+        <div style="font-weight:600;margin-bottom:8px;color:var(--t1)">發送對象</div>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" checked disabled> 發送給總部（Jerry）
+        </label>
+      </div>`+btns;
+  } else {
+    var opts='';
+    p.groups.forEach(g=>{
+      if(!G[g]) return;
+      var ck=g===sourceSid?' checked':'';
+      opts+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer">
+        <input type="checkbox" name="sub_send_g" value="${g}"${ck}> ${G[g].name}
+      </label>`;
+    });
+    // 全選按鈕
+    var allBtn=p.groups.length>1?`<div style="margin-bottom:8px;display:flex;gap:10px">
+      <span class="ai-copy" onclick="document.querySelectorAll('input[name=sub_send_g]').forEach(el=>el.checked=true)">全選</span>
+      <span class="ai-copy" onclick="document.querySelectorAll('input[name=sub_send_g]').forEach(el=>el.checked=false)">全不選</span>
+    </div>`:'';
+    body.innerHTML=preview+`
+      <div style="background:var(--bg2);border-radius:10px;padding:12px 14px;font-size:13px">
+        <div style="font-weight:600;margin-bottom:6px;color:var(--t1)">選擇發送的事業群（可複選）</div>
+        ${allBtn}${opts}
+      </div>`+btns;
+  }
+  window._submitGenContent=content;
+  window._submitGenIsXP=isXP;
+}
+
+function doSubmitSendAI(isXPStr){
+  var isXP=isXPStr==='true';
+  var groupIds=isXP?[]:Array.from(document.querySelectorAll('input[name="sub_send_g"]:checked')).map(el=>el.value);
+  submitSendAI(window._submitGenContent,isXP,groupIds);
+}
+
+async function submitSendAI(content,isXP,groupIds){
+  if(!content){ toast('請先生成 AI 週報','#c03020'); return; }
+  var p=getP(); if(!p) return;
+  var now=new Date().toISOString();
+  try{
+    if(isXP){
+      await sb.from('ai_reports').insert({persona_id:curPId,week_key:WEEK_KEY,group_id:null,target:'Jerry',content:content,generated_at:now});
+    } else {
+      if(!groupIds||groupIds.length===0){ toast('請至少選擇一個發送對象','#c03020'); return; }
+      var rows=groupIds.map(g=>({
+        persona_id:curPId,week_key:WEEK_KEY,group_id:g,
+        target:G[g]?G[g].mgr:'',content:content,generated_at:now
+      }));
+      await sb.from('ai_reports').insert(rows);
+    }
+    toast('✓ AI 週報已發送','#3d7020');
+    await loadAIReportCache();
+    updateSidebarAIBadges();
+    submitSetTab(submitCurTab);
+  } catch(e){
+    toast('發送失敗：'+(e.message||'請重試'),'#c03020');
+  }
 }
 
 function closeSubmitPreview(){

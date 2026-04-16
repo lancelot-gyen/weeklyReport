@@ -78,6 +78,13 @@
 | `.hist-brand` | 品牌資料區塊 |
 | `.hist-goto` | 前往填報按鈕（僅本人本週顯示） |
 | `.sbi-hist` | sidebar 週報查詢按鈕（藍色） |
+| `.sbi-air` | sidebar AI 週報條目（橘色 icon，名稱，生成時間） |
+| `.sbi-air-icon/.name/.time` | AI 週報條目子元素 |
+| `#sbAISection` | sidebar AI 週報動態區塊（`updateSidebarAISection()` 填入） |
+| `.ai-send-preview` | AI 發送 UI — 報告預覽（max-height 160px） |
+| `.ai-send-opts` | AI 發送 UI — 群組勾選清單 |
+| `.ai-send-opt` | 單一群組選項（`.on` 已勾選） |
+| `.ai-send-btns` | 發送按鈕列（全部發送 + 發送選取） |
 | `.submit-ov` | 送出週報預覽 overlay（`z:8100`，`.open` 顯示） |
 | `.submit-wrap` | 送出預覽容器（max-width 900px） |
 | `.submit-foot` | *(已移至 `.aifo` 行內，含取消 + 確認送出按鈕)* |
@@ -336,6 +343,12 @@ updateSidebarAIBadges()
   // 遍歷 p.groups (+ xp) 的 sidebar 元素
   // 若 aiReportCache[sid] 存在 → 插入 .sb-ai-dot（'✦ AI'）badge，badge 有 onclick → openAIFor(sid)
   // 否則移除已存在的 badge
+  // 同時呼叫 updateSidebarAISection()
+
+updateSidebarAISection()
+  // 填入 #sbAISection：有任何 AI 報告時顯示「✦ AI 週報」section
+  // 每份報告各自一個 .sbi-air 條目，顯示群名 + 生成時間（MM/DD HH:mm）
+  // 點擊 → openAIFor(sid)
 
 openAIFor(sid)
   // showPage(sid) → 打開 AI 面板(aiPanel.classList.add('open')) → setAITab(sid)
@@ -355,6 +368,20 @@ submitSetTab(sid)
 submitCopyAI()         // 複製 #submitAiText 文字到剪貼簿
 closeSubmitPreview()   // 關閉 #submitOv
 submitOvClick(e)       // 點背景關閉
+
+showAISendUI(content, isXP, p, gr)
+  // AI 生成成功後取代 #aiBody 顯示：
+  //   - 報告預覽（.ai-send-preview）
+  //   - 群組勾選（isXP → 固定「Jerry」；否則顯示 p.groups 的 checkboxes，預選 currentAISection）
+  //   - 「全部發送」→ aiSendAll() / 「發送選取」→ aiSendSelected()
+
+aiSendAll()           // 全選 checkboxes → aiSendSelected()
+aiSendSelected()      // 讀取勾選群組 → confirmAISend(content, false, p, groupIds)
+
+async confirmAISend(content, isXP, p, groupIds)
+  // isXP: insert 一筆 group_id=null
+  // !isXP: insert 多筆，每個 groupId 一筆 ai_reports（同一 content, 同一 generated_at）
+  // 成功 → renderAIResult, toast, loadAIReportCache, updateSidebarAIBadges
 
 async confirmSubmit()
   // saveCurrentPage() → upsert weekly_reports(section_id='_submit_', field_key='submitted')
@@ -452,6 +479,11 @@ histF(label, valHtml)
 | has_cross_group | bool | 是否有跨群進度 |
 | is_admin | bool | 管理者 |
 | email | text | Google 登入 email |
+| supervisor_id | text FK→personas \| null | 部門主管（非必填，自參照） |
+> ⚠ `supervisor_id` 需手動在 Supabase 執行 SQL：
+> ```sql
+> ALTER TABLE personas ADD COLUMN IF NOT EXISTS supervisor_id text REFERENCES personas(id);
+> ```
 
 ### `persona_groups`（多對多）
 | 欄位 | 型別 | 說明 |
@@ -580,6 +612,7 @@ RQ = {
 | 2026-04-15 | 新增送出週報預覽 Modal（`#submitOv`）：全週資料唯讀確認 + AI 報告展示，確認後寫 `_submit_` marker |
 | 2026-04-15 | 新增 Sidebar AI badge（`.sb-ai-dot`）：各群/xp 有 AI 報告時顯示「✦ AI」小標籤 |
 | 2026-04-15 | 重構送出週報預覽：改為 AI 面板同款視覺（tabs + aibl content）；移除底部列「預覽 AI 生成週報」按鈕；`+AI` badge 可點擊開啟 AI 面板；多群報告各自獨立 tab |
+| 2026-04-16 | 新增：personas.supervisor_id 部門主管欄位（需 Supabase SQL migration）；AI 生成後顯示發送群組選擇 UI（可選多群或全部發送同一份）；Sidebar 獨立 AI 週報區塊（#sbAISection，每份報告各一條目） |
 
 ---
 

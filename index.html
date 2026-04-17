@@ -1995,8 +1995,8 @@ const ADM_SCHEMA = {
   },
   personas:{
     label:'填報人', pk:'id', autoId:true,
-    cols:['id','name','init','color','role','note','has_cross_group','is_admin','email'],
-    colMap:{id:'ID',name:'姓名',init:'頭像文字',color:'顏色',role:'職能',note:'備注',has_cross_group:'跨群進度',is_admin:'管理者',email:'Email'},
+    cols:['name','init','color','role','note','has_cross_group','is_admin','email'],
+    colMap:{name:'姓名',init:'頭像文字',color:'顏色',role:'職能',note:'備注',has_cross_group:'跨群進度',is_admin:'管理者',email:'Email'},
     fields:[
       {k:'name',l:'姓名',t:'text',r:true},
       {k:'init',l:'頭像文字',t:'text',r:true,hint:'1-2字'},
@@ -2004,7 +2004,7 @@ const ADM_SCHEMA = {
       {k:'role',l:'職能',t:'role',r:true},
       {k:'note',l:'備注（自動產生）',t:'text'},
       {k:'email',l:'Email',t:'email'},
-      {k:'supervisor_id',l:'部門主管（選填）',t:'select',src:'personas',srcL:'name'},
+      {k:'supervisor_id',l:'部門主管（選填）',t:'select',src:'personas',srcL:'name',srcV:'id'},
       {k:'has_cross_group',l:'有跨群進度填報',t:'checkbox'},
       {k:'is_admin',l:'管理者權限',t:'checkbox'}
     ]

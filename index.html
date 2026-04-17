@@ -1928,7 +1928,7 @@ const ADM_SCHEMA = {
     fields:[
       {k:'id',l:'ID',t:'text',r:true,hint:'e.g. g1'},
       {k:'name',l:'名稱',t:'text',r:true},
-      {k:'manager',l:'負責人',t:'text',r:true,hint:'Kyle / 小美'},
+      {k:'manager',l:'負責人',t:'select',src:'personas',srcL:'name',srcV:'name',r:true},
       {k:'sort_order',l:'排序',t:'number',def:'0'}
     ]
   },
@@ -2059,7 +2059,12 @@ function renderAdmTab(tab){
       html+=`<div class="adm-fi${f.full?' full':''}">
         <label>${f.l}${f.r?'<span style="color:var(--ac);margin-left:2px">*</span>':''}</label>`;
       if(f.t==='select'){
-        var opts=(admRelated[f.src]||[]).map(o=>`<option value="${o.id}"${val===o.id?' selected':''}>${o.id} — ${o[f.srcL]||''}</option>`).join('');
+        // srcV：以指定欄位作為 option value（預設用 id）；srcV 存在時只顯示 srcL，不加 id 前綴
+        var optValKey=f.srcV||'id';
+        var opts=(admRelated[f.src]||[]).map(o=>{
+          var v=o[optValKey]||''; var lbl=f.srcV?escapeHtml(o[f.srcL]||''):(o.id+' — '+escapeHtml(o[f.srcL]||''));
+          return `<option value="${escapeHtml(v)}"${val===v?' selected':''}>${lbl}</option>`;
+        }).join('');
         html+=`<select id="adf_${f.k}"><option value="">-- 選擇 --</option>${opts}</select>`;
       } else if(f.t==='role'){
         // 職能：下拉選單（含現有職能，可自行輸入）

@@ -966,7 +966,7 @@ async function loadApp() {
   try {
     // Load groups
     const { data: groups } = await sb.from('groups').select('*').order('sort_order');
-    groups.forEach(g => { G[g.id] = { name: g.name, mgr: g.manager }; });
+    groups.forEach(g => { G[g.id] = { name: g.name, mgr: mgrArr(g.manager) }; });
 
     // Load brands
     const { data: brands } = await sb.from('brands').select('*').order('sort_order');
@@ -1225,7 +1225,7 @@ function buildSidebar(p){
     if (!gr) return;
     h += `<div class="sbi${st==='done'?' done':ac?' active':''}" data-sid="${g}" onclick="clickSb('${g}')">
       <span>${gr.name}</span>
-      <div class="sbr"><span class="sbmg">${gr.mgr.split('/')[0].trim()}</span>
+      <div class="sbr"><span class="sbmg">${gr.mgr[0]||''}</span>
       <span class="sbd ${st==='done'?'d-done':ac?'d-act':'d-empty'}"></span></div></div>`;
   });
   // AI 週報獨立區塊（動態填入，loadAIReportCache 後呼叫 updateSidebarAISection）
@@ -1325,14 +1325,14 @@ function buildGroupPage(p, gid, idx){
     '<div class="phtag grp">群組回報</div>'+
     '<div class="phti">'+g.name+' ・ '+p.role+'進度</div>'+
     '<div class="phsb">填完後點「儲存，下一項」繼續</div>'+
-    '<div class="phrt">報告路由至 → <span class="rtag">'+g.mgr+'</span></div>'+
+    '<div class="phrt">報告路由至 → <span class="rtag">'+mgrStr(g.mgr)+'</span></div>'+
     '</div>'+
     '<div class="strow">'+
     '<div class="sp g" onclick="pickSp(this)">順暢推進</div>'+
     '<div class="sp y" onclick="pickSp(this)">有些卡關</div>'+
     '<div class="sp r" onclick="pickSp(this)">壓力很大</div>'+
     '</div></div>';
-  var doneH = dncH(g.name+'・'+p.role+'摘要','本週進度已填寫完成，報告送出給 '+g.mgr+'。',[{c:'g',t:'✓ 已完成'}],gid);
+  var doneH = dncH(g.name+'・'+p.role+'摘要','本週進度已填寫完成，報告送出給 '+mgrStr(g.mgr)+'。',[{c:'g',t:'✓ 已完成'}],gid);
   var brands = '';
   (g.brands||[]).forEach(brand => {
     var bid = 'b'+gid+brand.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g,'');
@@ -1361,7 +1361,7 @@ function buildGroupPage(p, gid, idx){
     brands += '</div></div>';
   });
   var dcardH = `<div class="dc"><div class="dch"><div class="wb">!</div>
-    <div class="dct">需要 ${g.mgr} 協助或決策</div></div><div class="dcb">
+    <div class="dct">需要 ${mgrStr(g.mgr)} 協助或決策</div></div><div class="dcb">
     ${f(false,'⚠ 需群負責人協調',`<textarea data-fkey="${gid}_esc1" placeholder="說明背景和建議，沒有可留空"></textarea>`,false)}
     ${f(false,'🔴 需公司層級決策（選填）',`<textarea data-fkey="${gid}_esc2" placeholder="超出群負責人權限才填"></textarea>`,false)}
     </div></div>`;
@@ -1580,7 +1580,7 @@ async function generateAIReport(){
       .replace(/\{\{role\}\}/g, p.role)
       .replace(/\{\{week\}\}/g, weekLabel)
       .replace(/\{\{group_name\}\}/g, gr ? gr.name : '跨群')
-      .replace(/\{\{manager\}\}/g, gr ? gr.mgr : 'Jerry')
+      .replace(/\{\{manager\}\}/g, gr ? mgrStr(gr.mgr) : 'Jerry')
       .replace(/\{\{fields\}\}/g, fields);
 
     var response, data, content;
@@ -1671,7 +1671,7 @@ function showAISendUI(content, isXP, p, gr){
       var gr2=G[g]; if(!gr2) return;
       var checked=g===currentAISection;
       opts+=`<label class="ai-send-opt${checked?' on':''}">
-        <input type="checkbox" name="ai_send_g" value="${g}"${checked?' checked':''} onchange="this.closest('.ai-send-opt').classList.toggle('on',this.checked)"> ${gr2.name}（${gr2.mgr.split('/')[0].trim()}）
+        <input type="checkbox" name="ai_send_g" value="${g}"${checked?' checked':''} onchange="this.closest('.ai-send-opt').classList.toggle('on',this.checked)"> ${gr2.name}（${gr2.mgr[0]||''}）
       </label>`;
     });
     bodyEl.innerHTML=preview+`
@@ -1708,7 +1708,7 @@ async function confirmAISend(content, isXP, p, groupIds){
     } else {
       var rows=(groupIds||[]).map(g=>({
         persona_id:curPId, week_key:WEEK_KEY, group_id:g,
-        target: G[g]?G[g].mgr:'', content:content, generated_at:now
+        target: G[g]?mgrStr(G[g].mgr):'', content:content, generated_at:now
       }));
       if(rows.length>0) await sb.from('ai_reports').insert(rows);
     }
@@ -1894,6 +1894,10 @@ function isAdmin(){
 }
 
 var admCurTab = 'groups';
+// ── 負責人多值輔助（manager 存為 JSON array string）──
+function mgrArr(v){ if(Array.isArray(v)) return v; try{ var r=JSON.parse(v); if(Array.isArray(r)) return r; }catch(e){} return v?[v]:[]; }
+function mgrStr(v){ return mgrArr(v).join('、'); }
+
 var admRows = [];
 var admEditIdx = -1;
 var admRelated = {};
@@ -1928,7 +1932,7 @@ const ADM_SCHEMA = {
     fields:[
       {k:'id',l:'ID',t:'text',r:true,hint:'e.g. g1'},
       {k:'name',l:'名稱',t:'text',r:true},
-      {k:'manager',l:'負責人',t:'select',src:'personas',srcL:'name',srcV:'name',r:true},
+      {k:'manager',l:'負責人（可多選）',t:'multiselect',src:'personas',srcL:'name',srcV:'name',r:true},
       {k:'sort_order',l:'排序',t:'number',def:'0'}
     ]
   },
@@ -2058,7 +2062,19 @@ function renderAdmTab(tab){
     if(isEdit && f.k==='note' && admPersonaGroupNote) val=admPersonaGroupNote;
       html+=`<div class="adm-fi${f.full?' full':''}">
         <label>${f.l}${f.r?'<span style="color:var(--ac);margin-left:2px">*</span>':''}</label>`;
-      if(f.t==='select'){
+      if(f.t==='multiselect'){
+        // 多選：checkbox 清單，值存為 JSON array string
+        var optValKey=f.srcV||'id';
+        var selArr=mgrArr(val); // 已選值陣列
+        var cbItems=(admRelated[f.src]||[]).map(o=>{
+          var v=o[optValKey]||''; var lbl=escapeHtml(o[f.srcL]||'');
+          var ck=selArr.includes(v)?'checked':'';
+          return `<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;${ck?'background:var(--al)':''}">
+            <input type="checkbox" class="adf-ms-cb" data-fk="${f.k}" value="${escapeHtml(v)}" ${ck} style="accent-color:var(--ac)"> ${lbl}
+          </label>`;
+        }).join('');
+        html+=`<div id="adf_${f.k}" style="border:1px solid var(--bd);border-radius:8px;padding:4px 6px;max-height:160px;overflow-y:auto;background:var(--bg1)">${cbItems}</div>`;
+      } else if(f.t==='select'){
         // srcV：以指定欄位作為 option value（預設用 id）；srcV 存在時只顯示 srcL，不加 id 前綴
         var optValKey=f.srcV||'id';
         var opts=(admRelated[f.src]||[]).map(o=>{
@@ -2107,11 +2123,17 @@ function renderAdmTab(tab){
     sc.cols.forEach(c=>{
       var raw=row[c];
       var v=raw;
-      // 外鍵欄位：顯示對應的名稱而非 ID
+      // 外鍵欄位：顯示對應的名稱而非 ID（支援 multiselect JSON array）
       if(colRelMap[c]){
-        var rel=admRelated[colRelMap[c].src]||[];
-        var found=rel.find(r=>r.id===raw);
-        v=found?found[colRelMap[c].lbl]||raw:raw;
+        var fDef=sc.fields.find(f=>f.k===c);
+        if(fDef&&fDef.t==='multiselect'){
+          // multiselect：JSON array 直接即為名稱（srcV='name'）
+          v=mgrStr(raw)||'—';
+        } else {
+          var rel=admRelated[colRelMap[c].src]||[];
+          var found=rel.find(r=>r.id===raw);
+          v=found?found[colRelMap[c].lbl]||raw:raw;
+        }
       } else if(c==='color') v=`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:50%;background:${raw};flex-shrink:0;display:inline-block"></span>${raw}</span>`;
       else if(typeof v==='boolean') v=v?'✓':'—';
       else if(c==='prompt_template') v=v?(v.length>40?v.slice(0,38)+'…':v):'—';
@@ -2161,7 +2183,11 @@ function admGetFormData(tab){
     if(!el) return;
     if(f.t==='checkbox') data[f.k]=el.checked;
     else if(f.t==='number') data[f.k]=el.value===''?0:Number(el.value);
-    else if(f.t==='select'&&!f.r) data[f.k]=el.value.trim()||null; // 非必填 select → null 而非空字串
+    else if(f.t==='multiselect'){
+      var vals=Array.from(el.querySelectorAll('input.adf-ms-cb:checked')).map(cb=>cb.value);
+      data[f.k]=JSON.stringify(vals);
+    }
+    else if(f.t==='select'&&!f.r) data[f.k]=el.value.trim()||null;
     else data[f.k]=el.value.trim();
   });
   return data;
@@ -3034,7 +3060,7 @@ async function submitSendAI(content,isXP,groupIds){
       if(!groupIds||groupIds.length===0){ toast('請至少選擇一個發送對象','#c03020'); return; }
       var rows=groupIds.map(g=>({
         persona_id:curPId,week_key:WEEK_KEY,group_id:g,
-        target:G[g]?G[g].mgr:'',content:content,generated_at:now
+        target:G[g]?mgrStr(G[g].mgr):'',content:content,generated_at:now
       }));
       await sb.from('ai_reports').insert(rows);
     }

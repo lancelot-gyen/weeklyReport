@@ -476,6 +476,25 @@ textarea.sh{min-height:60px;resize:none;}
 .adm-fi input[type=color]{padding:4px;height:38px;cursor:pointer;}
 .adm-fi input[type=checkbox]{width:18px;height:18px;accent-color:var(--ac);cursor:pointer;}
 .adm-fi textarea{min-height:100px;resize:vertical;line-height:1.6;}
+/* multiselect dropdown */
+.ms-wrap{position:relative;}
+.ms-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  border:1px solid var(--bd);border-radius:8px;padding:0 10px;min-height:38px;
+  background:var(--bg1);cursor:pointer;font-size:13px;color:var(--t);user-select:none;}
+.ms-trigger:focus-within,.ms-trigger.open{border-color:var(--ac);}
+.ms-trigger-label{flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--t);}
+.ms-trigger-label.ph{color:var(--t3);}
+.ms-arrow{font-size:10px;color:var(--t3);transition:transform .15s;flex-shrink:0;}
+.ms-trigger.open .ms-arrow{transform:rotate(180deg);}
+.ms-dropdown{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:900;
+  background:var(--sf2);border:1px solid var(--bd);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:220px;overflow-y:auto;padding:4px;}
+.ms-dropdown.open{display:block;}
+.ms-opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;
+  cursor:pointer;font-size:13px;color:var(--t);transition:background .1s;}
+.ms-opt:hover{background:var(--bg2);}
+.ms-opt.on{background:var(--al);}
+.ms-opt input{accent-color:var(--ac);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
 .adm-form-foot{display:flex;gap:8px;margin-top:12px;align-items:center;}
 .adm-sub{padding:9px 20px;background:var(--ac);color:#fff;border:none;border-radius:8px;
   font-size:13px;font-family:'Noto Sans TC',sans-serif;font-weight:500;
@@ -1898,6 +1917,33 @@ var admCurTab = 'groups';
 function mgrArr(v){ if(Array.isArray(v)) return v; try{ var r=JSON.parse(v); if(Array.isArray(r)) return r; }catch(e){} return v?[v]:[]; }
 function mgrStr(v){ return mgrArr(v).join('、'); }
 
+// ── multiselect dropdown 互動 ──
+function msToggle(trigger){
+  var dd=document.getElementById(trigger.id+'_dd');
+  var isOpen=dd.classList.contains('open');
+  // 關閉所有其他 dropdown
+  document.querySelectorAll('.ms-dropdown.open').forEach(el=>{ el.classList.remove('open'); el.previousElementSibling.classList.remove('open'); });
+  if(!isOpen){ dd.classList.add('open'); trigger.classList.add('open'); }
+}
+function msTick(opt){
+  var cb=opt.querySelector('input[type=checkbox]');
+  cb.checked=!cb.checked;
+  opt.classList.toggle('on',cb.checked);
+  // 更新 trigger label
+  var fk=cb.dataset.fk;
+  var trigger=document.getElementById('adf_'+fk);
+  var lbl=document.getElementById('adf_'+fk+'_lbl');
+  var vals=Array.from(document.querySelectorAll(`#adf_${fk}_dd input.adf-ms-cb:checked`)).map(el=>el.value);
+  if(vals.length){ lbl.textContent=vals.join('、'); lbl.classList.remove('ph'); }
+  else { lbl.textContent='-- 請選擇 --'; lbl.classList.add('ph'); }
+}
+// 點外部關閉 dropdown
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.ms-wrap')){
+    document.querySelectorAll('.ms-dropdown.open').forEach(el=>{ el.classList.remove('open'); el.previousElementSibling.classList.remove('open'); });
+  }
+});
+
 var admRows = [];
 var admEditIdx = -1;
 var admRelated = {};
@@ -2063,17 +2109,24 @@ function renderAdmTab(tab){
       html+=`<div class="adm-fi${f.full?' full':''}">
         <label>${f.l}${f.r?'<span style="color:var(--ac);margin-left:2px">*</span>':''}</label>`;
       if(f.t==='multiselect'){
-        // 多選：checkbox 清單，值存為 JSON array string
         var optValKey=f.srcV||'id';
-        var selArr=mgrArr(val); // 已選值陣列
+        var selArr=mgrArr(val);
+        var labelTxt=selArr.length?selArr.join('、'):'-- 請選擇 --';
+        var isPh=selArr.length===0;
         var cbItems=(admRelated[f.src]||[]).map(o=>{
           var v=o[optValKey]||''; var lbl=escapeHtml(o[f.srcL]||'');
-          var ck=selArr.includes(v)?'checked':'';
-          return `<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;${ck?'background:var(--al)':''}">
-            <input type="checkbox" class="adf-ms-cb" data-fk="${f.k}" value="${escapeHtml(v)}" ${ck} style="accent-color:var(--ac)"> ${lbl}
-          </label>`;
+          var ck=selArr.includes(v);
+          return `<div class="ms-opt${ck?' on':''}" onclick="msTick(this)">
+            <input type="checkbox" class="adf-ms-cb" data-fk="${f.k}" value="${escapeHtml(v)}" ${ck?'checked':''} tabindex="-1"> ${lbl}
+          </div>`;
         }).join('');
-        html+=`<div id="adf_${f.k}" style="border:1px solid var(--bd);border-radius:8px;padding:4px 6px;max-height:160px;overflow-y:auto;background:var(--bg1)">${cbItems}</div>`;
+        html+=`<div class="ms-wrap">
+          <div class="ms-trigger" id="adf_${f.k}" onclick="msToggle(this)">
+            <span class="ms-trigger-label${isPh?' ph':''}" id="adf_${f.k}_lbl">${escapeHtml(labelTxt)}</span>
+            <span class="ms-arrow">▼</span>
+          </div>
+          <div class="ms-dropdown" id="adf_${f.k}_dd">${cbItems}</div>
+        </div>`;
       } else if(f.t==='select'){
         // srcV：以指定欄位作為 option value（預設用 id）；srcV 存在時只顯示 srcL，不加 id 前綴
         var optValKey=f.srcV||'id';
@@ -2184,7 +2237,8 @@ function admGetFormData(tab){
     if(f.t==='checkbox') data[f.k]=el.checked;
     else if(f.t==='number') data[f.k]=el.value===''?0:Number(el.value);
     else if(f.t==='multiselect'){
-      var vals=Array.from(el.querySelectorAll('input.adf-ms-cb:checked')).map(cb=>cb.value);
+      var dd=document.getElementById('adf_'+f.k+'_dd');
+      var vals=dd?Array.from(dd.querySelectorAll('input.adf-ms-cb:checked')).map(cb=>cb.value):[];
       data[f.k]=JSON.stringify(vals);
     }
     else if(f.t==='select'&&!f.r) data[f.k]=el.value.trim()||null;

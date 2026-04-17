@@ -1994,11 +1994,10 @@ const ADM_SCHEMA = {
     ]
   },
   personas:{
-    label:'填報人', pk:'id',
+    label:'填報人', pk:'id', autoId:true,
     cols:['id','name','init','color','role','note','has_cross_group','is_admin','email'],
     colMap:{id:'ID',name:'姓名',init:'頭像文字',color:'顏色',role:'職能',note:'備注',has_cross_group:'跨群進度',is_admin:'管理者',email:'Email'},
     fields:[
-      {k:'id',l:'ID',t:'text',r:true},
       {k:'name',l:'姓名',t:'text',r:true},
       {k:'init',l:'頭像文字',t:'text',r:true,hint:'1-2字'},
       {k:'color',l:'頭像顏色',t:'color',r:true},
@@ -2101,6 +2100,11 @@ function renderAdmTab(tab){
     html+=`<div class="adm-form">
       <div class="adm-form-t">${isEdit?'✏ 編輯':'＋ 新增'}${sc.label} <span>${isEdit?'修改後點「儲存」':'填寫後點「新增」'}</span></div>
       <div class="adm-fgrid">`;
+    // autoId：編輯時顯示唯讀 ID；新增時不顯示
+    if(sc.autoId && isEdit){
+      html+=`<div class="adm-fi"><label>ID（自動）</label>
+        <input type="text" value="${escapeHtml(String(row[sc.pk]||''))}" disabled style="opacity:.5;cursor:not-allowed"></div>`;
+    }
     sc.fields.forEach(f=>{
       // 填報人備注：若目前空白則自動帶入群組對應產生的文字
     var val=row[f.k]!==undefined?row[f.k]:(f.def||'');
@@ -2271,7 +2275,8 @@ async function admSubmit(tab){
     if(error){ toast('更新失敗：'+error.message,'#c03020'); return; }
     toast('✓ 已更新','#3d7020');
   } else {
-    // INSERT
+    // INSERT — autoId 欄位由 DB 自動產生，不傳 pk
+    if(sc.autoId && !Array.isArray(sc.pk)) delete data[sc.pk];
     var {error}=await sb.from(tab).insert(data);
     if(error){ toast('新增失敗：'+error.message,'#c03020'); return; }
     toast('✓ 已新增','#3d7020');
